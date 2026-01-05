@@ -309,7 +309,7 @@ class VpnService : SystemVpnService(), IBaseService,
             val ports = listOf(1080, 1081, 1082, 1083)
             val nativeDir = applicationInfo.nativeLibraryDir
             
-            // Helper to escape JSON string properly
+            // Helper to escape JSON string properly (keep this for safety)
             fun escapeJson(s: String): String {
                 return s.replace("\\", "\\\\")
                         .replace("\"", "\\\"")
@@ -321,22 +321,11 @@ class VpnService : SystemVpnService(), IBaseService,
             }
 
             for (port in ports) {
-                // Construct JSON config with absolute precision
-                val configContent = """
-                {
-                    "server": "${escapeJson(ip)}:${escapeJson(portRange)}",
-                    "obfs": "${escapeJson(obfs)}",
-                    "auth": "${escapeJson(pass)}",
-                    "socks5": {
-                        "listen": "127.0.0.1:$port"
-                    },
-                    "insecure": true,
-                    "recvwindowconn": 131072,
-                    "recvwindow": 327680
-                }
-                """.trimIndent().replace("\n", "").replace(" ", "")
+                // Construct JSON config EXACTLY like ZIVPN (Single line string template)
+                // Do NOT use .replace(" ", "") as it corrupts passwords/obfs containing spaces
+                val configContent = "{\"server\":\"${escapeJson(ip)}:${escapeJson(portRange)}\",\"obfs\":\"${escapeJson(obfs)}\",\"auth\":\"${escapeJson(pass)}\",\"socks5\":{\"listen\":\"127.0.0.1:$port\"},\"insecure\":true,\"recvwindowconn\":131072,\"recvwindow\":327680}"
                 
-                // Log the exact command for debugging (viewable in logcat)
+                // Log the exact command for debugging
                 Log.d("FlClash", "Executing: $libUz -s $obfs --config $configContent")
 
                 val pb = ProcessBuilder(libUz, "-s", obfs, "--config", configContent)
