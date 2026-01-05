@@ -307,7 +307,6 @@ class VpnService : SystemVpnService(), IBaseService,
 
             val tunnels = mutableListOf<String>()
             val ports = listOf(1080, 1081, 1082, 1083)
-            val nativeDir = applicationInfo.nativeLibraryDir
             
             // Helper to escape JSON string properly (Simplified for Kotlin compatibility)
             fun escapeJson(s: String): String {
