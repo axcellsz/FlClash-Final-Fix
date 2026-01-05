@@ -309,12 +309,10 @@ class VpnService : SystemVpnService(), IBaseService,
             val ports = listOf(1080, 1081, 1082, 1083)
             val nativeDir = applicationInfo.nativeLibraryDir
             
-            // Helper to escape JSON string properly (keep this for safety)
+            // Helper to escape JSON string properly (Simplified for Kotlin compatibility)
             fun escapeJson(s: String): String {
                 return s.replace("\\", "\\\\")
                         .replace("\"", "\\\"")
-                        .replace("\b", "\\b")
-                        .replace("\f", "\\f")
                         .replace("\n", "\\n")
                         .replace("\r", "\\r")
                         .replace("\t", "\\t")
