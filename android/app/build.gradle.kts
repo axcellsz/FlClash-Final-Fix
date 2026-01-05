@@ -16,12 +16,19 @@ val localProperties = Properties().apply {
     }
 }
 
-val mStoreFile: File = file("keystore.jks")
-val mStorePassword: String? = localProperties.getProperty("storePassword")
-val mKeyAlias: String? = localProperties.getProperty("keyAlias")
-val mKeyPassword: String? = localProperties.getProperty("keyPassword")
-val isRelease =
-    mStoreFile.exists() && mStorePassword != null && mKeyAlias != null && mKeyPassword != null
+// Logic: Try Env Vars (CI) -> Fallback to local.properties (Local)
+val envKeystorePath = System.getenv("KEYSTORE_PATH")
+val mStoreFile: File = if (!envKeystorePath.isNullOrEmpty()) {
+    File(envKeystorePath)
+} else {
+    file("keystore.jks")
+}
+
+val mStorePassword = System.getenv("STORE_PASSWORD") ?: localProperties.getProperty("storePassword")
+val mKeyAlias = System.getenv("KEY_ALIAS") ?: localProperties.getProperty("keyAlias")
+val mKeyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty("keyPassword")
+
+val isRelease = mStoreFile.exists() && !mStorePassword.isNullOrEmpty() && !mKeyAlias.isNullOrEmpty() && !mKeyPassword.isNullOrEmpty()
 
 
 android {
