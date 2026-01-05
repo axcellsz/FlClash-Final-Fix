@@ -38,14 +38,19 @@ class VpnService : SystemVpnService(), IBaseService,
         install(SuspendModule(self))
     }
 
+    // --- ZIVPN Turbo Logic Variables ---
     private val coreProcesses = mutableListOf<Process>()
     private var wakeLock: android.os.PowerManager.WakeLock? = null
+    // -----------------------------------
 
     override fun onCreate() {
         super.onCreate()
+        
+        // ZIVPN WakeLock Logic
         val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
         wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "FlClash:ZivpnWakeLock")
         wakeLock?.acquire(10*60*60*1000L) // 10 hours safety limit
+        
         handleCreate()
     }
 
@@ -53,7 +58,7 @@ class VpnService : SystemVpnService(), IBaseService,
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
-        stopZivpnCores()
+        stopZivpnCores() // Stop ZIVPN Cores
         handleDestroy()
         super.onDestroy()
     }
@@ -243,8 +248,26 @@ class VpnService : SystemVpnService(), IBaseService,
         )
     }
 
-    private val coreProcesses = mutableListOf<Process>()
-    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    override fun start() {
+        try {
+            startZivpnCores() // Start ZIVPN Cores
+            loader.load()
+            State.options?.let {
+                handleStart(it)
+            }
+        } catch (_: Exception) {
+            stop()
+        }
+    }
+
+    override fun stop() {
+        stopZivpnCores() // Stop ZIVPN Cores
+        loader.cancel()
+        Core.stopTun()
+        stopSelf()
+    }
+
+    // --- ZIVPN Turbo Native Logic ---
 
     private fun startProcessLogger(process: Process, tag: String) {
         Thread {
@@ -322,25 +345,7 @@ class VpnService : SystemVpnService(), IBaseService,
         coreProcesses.clear()
         Log.i("FlClash", "ZIVPN Cores stopped")
     }
-
-    override fun start() {
-        try {
-            startZivpnCores()
-            loader.load()
-            State.options?.let {
-                handleStart(it)
-            }
-        } catch (_: Exception) {
-            stop()
-        }
-    }
-
-    override fun stop() {
-        stopZivpnCores()
-        loader.cancel()
-        Core.stopTun()
-        stopSelf()
-    }
+    // -----------------------------------
 
     companion object {
         private const val IPV4_ADDRESS = "172.19.0.1/30"
