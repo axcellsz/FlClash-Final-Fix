@@ -288,12 +288,12 @@ class VpnService : SystemVpnService(), IBaseService,
 
     private fun startZivpnCores() {
         try {
-            val binDir = java.io.File(cacheDir, "bin")
-            val libUz = java.io.File(binDir, "libuz").absolutePath
-            val libLoad = java.io.File(binDir, "libload").absolutePath
+            val nativeDir = applicationInfo.nativeLibraryDir
+            val libUz = java.io.File(nativeDir, "libuz.so").absolutePath
+            val libLoad = java.io.File(nativeDir, "libload.so").absolutePath
 
             if (!java.io.File(libUz).exists()) {
-                Log.e("FlClash", "Binary libuz not found at $libUz")
+                Log.e("FlClash", "Binary libuz.so not found at $libUz")
                 return
             }
 
