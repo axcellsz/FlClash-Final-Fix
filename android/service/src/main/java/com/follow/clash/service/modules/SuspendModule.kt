@@ -31,11 +31,8 @@ class SuspendModule(private val service: Service) : Module() {
         }
 
     private fun onUpdate(isScreenOn: Boolean) {
-        if (isScreenOn) {
-            Core.suspended(false)
-            return
-        }
-        Core.suspended(isDeviceIdleMode)
+        // FORCE KEEP ALIVE: Never suspend core
+        Core.suspended(false)
     }
 
     override fun onInstall() {
