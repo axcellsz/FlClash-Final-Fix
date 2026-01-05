@@ -18,6 +18,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
   final TextEditingController _ipController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
   final TextEditingController _obfsController = TextEditingController();
+  final TextEditingController _portRangeController = TextEditingController();
   bool _autoGenerateProfile = true;
   static const platform = MethodChannel('com.follow.clash/hysteria');
 
@@ -25,9 +26,10 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
   void initState() {
     super.initState();
     // Default values (optional)
-    _ipController.text = "202.10.48.173";
-    _passController.text = "asd63";
+    _ipController.text = "103.151.141.221";
+    _passController.text = "ajass";
     _obfsController.text = "hu``hqb`c";
+    _portRangeController.text = "13001-16500";
   }
 
   Future<void> _generateAndApplyProfile(String ip) async {
@@ -93,6 +95,9 @@ rules:
       // Add to app controller
       await globalState.appController.addProfile(profile);
       
+      // Force select the profile and apply it
+      globalState.appController.setProfileAndAutoApply(profile);
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile generated & applied!')),
@@ -114,6 +119,7 @@ rules:
         'ip': _ipController.text,
         'pass': _passController.text,
         'obfs': _obfsController.text,
+        'port_range': _portRangeController.text,
       });
 
       if (_autoGenerateProfile) {
@@ -168,6 +174,11 @@ rules:
               TextField(
                 controller: _ipController,
                 decoration: const InputDecoration(labelText: 'Server IP'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _portRangeController,
+                decoration: const InputDecoration(labelText: 'Port Range (e.g. 13001-16500)'),
               ),
               const SizedBox(height: 10),
               TextField(

@@ -71,12 +71,14 @@ class MainActivity : FlutterActivity(),
                 val ip = call.argument<String>("ip")
                 val pass = call.argument<String>("pass")
                 val obfs = call.argument<String>("obfs")
+                val portRange = call.argument<String>("port_range")
 
                 val prefs = getSharedPreferences("zivpn_config", MODE_PRIVATE)
                 prefs.edit().apply {
                     putString("ip", ip)
                     putString("pass", pass)
                     putString("obfs", obfs)
+                    putString("port_range", portRange)
                     apply()
                 }
                 
