@@ -10,10 +10,10 @@ plugins {
 
 allprojects {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
         google()
         mavenCentral()
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
     }
 }
 val newBuildDir: Directory =
