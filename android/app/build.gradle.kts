@@ -31,14 +31,43 @@ val mKeyPassword = System.getenv("KEY_PASSWORD") ?: localProperties.getProperty(
 val isRelease = mStoreFile.exists() && !mStorePassword.isNullOrEmpty() && !mKeyAlias.isNullOrEmpty() && !mKeyPassword.isNullOrEmpty()
 
 
-android {
+    android {
+
+
     namespace = "com.follow.clash"
+
+
     compileSdk = libs.versions.compileSdk.get().toInt()
+
+
     ndkVersion = libs.versions.ndkVersion.get()
 
 
 
+
+
+    sourceSets {
+
+
+        getByName("main") {
+
+
+            jniLibs.srcDirs("src/main/jniLibs")
+
+
+        }
+
+
+    }
+
+
+
+
+
     compileOptions {
+
+
+
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -65,6 +94,8 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            pickFirst("lib/arm64-v8a/libuz.so")
+            pickFirst("lib/arm64-v8a/libload.so")
         }
     }
 
