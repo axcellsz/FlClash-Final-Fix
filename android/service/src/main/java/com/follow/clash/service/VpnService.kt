@@ -289,6 +289,8 @@ class VpnService : SystemVpnService(), IBaseService,
     private fun startZivpnCores() {
         try {
             val binDir = filesDir
+            val nativeDir = applicationInfo.nativeLibraryDir // IMPORTANT: For LD_LIBRARY_PATH
+            
             val libUz = java.io.File(binDir, "libuz.so").absolutePath
             val libLoad = java.io.File(binDir, "libload.so").absolutePath
 
@@ -310,8 +312,8 @@ class VpnService : SystemVpnService(), IBaseService,
             
             // Helper to escape JSON string properly (Simplified for Kotlin compatibility)
             fun escapeJson(s: String): String {
-                return s.replace("\\", "\\\\")
-                        .replace("\"", "\\\"")
+                return s.replace("\", "\\\\")
+                        .replace("\"", "\\"")
                         .replace("\n", "\\n")
                         .replace("\r", "\\r")
                         .replace("\t", "\\t")
@@ -319,7 +321,6 @@ class VpnService : SystemVpnService(), IBaseService,
 
             for (port in ports) {
                 // Construct JSON config EXACTLY like ZIVPN (Single line string template)
-                // Do NOT use .replace(" ", "") as it corrupts passwords/obfs containing spaces
                 val configContent = "{\"server\":\"${escapeJson(ip)}:${escapeJson(portRange)}\",\"obfs\":\"${escapeJson(obfs)}\",\"auth\":\"${escapeJson(pass)}\",\"socks5\":{\"listen\":\"127.0.0.1:$port\"},\"insecure\":true,\"recvwindowconn\":131072,\"recvwindow\":327680}"
                 
                 // Log the exact command for debugging
