@@ -270,17 +270,41 @@ class VpnService : SystemVpnService(), IBaseService,
     // --- ZIVPN Turbo Native Logic ---
 
     private fun startProcessLogger(process: Process, tag: String) {
+        val logDir = java.io.File(filesDir, "zivpn_logs")
+        if (!logDir.exists()) logDir.mkdirs()
+        val logFile = java.io.File(logDir, "zivpn_core.log")
+        
+        // Append mode
+        val writer = java.io.FileWriter(logFile, true)
+        val dateFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+
+        fun writeLog(msg: String, isError: Boolean) {
+            val timestamp = dateFormat.format(java.util.Date())
+            val type = if (isError) "ERR" else "OUT"
+            val logLine = "[$timestamp] [$tag] [$type] $msg\n"
+            
+            // Write to Logcat
+            if (isError) Log.e("FlClash", "[$tag] $msg") else Log.i("FlClash", "[$tag] $msg")
+            
+            // Write to File
+            try {
+                writer.write(logLine)
+                writer.flush()
+            } catch (e: Exception) {}
+        }
+
         Thread {
             try {
                 process.inputStream.bufferedReader().use { reader ->
-                    reader.forEachLine { Log.i("FlClash", "[$tag] $it") }
+                    reader.forEachLine { writeLog(it, false) }
                 }
             } catch (e: Exception) {}
         }.start()
+        
         Thread {
             try {
                 process.errorStream.bufferedReader().use { reader ->
-                    reader.forEachLine { Log.e("FlClash", "[$tag] $it") }
+                    reader.forEachLine { writeLog(it, true) }
                 }
             } catch (e: Exception) {}
         }.start()

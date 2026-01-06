@@ -209,6 +209,22 @@ rules:
                 onPressed: _startHysteria,
                 child: const Text('Start Turbo Engine'),
               ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.description),
+                    label: const Text("View Logs"),
+                    onPressed: _viewLogs,
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text("Clear Logs"),
+                    onPressed: _clearLogs,
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               const Text(
                 "Note: This will start 4 Hysteria cores on ports 1080-1083 and a Load Balancer on port 7777.\\n"
@@ -220,5 +236,59 @@ rules:
         ),
       ),
     );
+  }
+
+  Future<void> _viewLogs() async {
+    try {
+      final appDocDir = await appPath.getApplicationSupportDirectory();
+      // Android path: /data/user/0/com.follow.clash/files/zivpn_logs/zivpn_core.log
+      // appPath.getApplicationSupportDirectory() usually returns files dir parent or similar.
+      // Let's try constructing the path based on standard Android files structure relative to what we know.
+      // Actually, better to use MethodChannel to read it if paths are tricky, but let's try direct read first.
+      
+      // Note: 'filesDir' in Android corresponds to getApplicationSupportDirectory in path_provider (mostly).
+      // Let's check common locations.
+      
+      final logFile = File('${appDocDir.parent.path}/files/zivpn_logs/zivpn_core.log');
+      
+      String content = "Log file not found.";
+      if (await logFile.exists()) {
+        content = await logFile.readAsString();
+      }
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Core Logs"),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                reverse: true,
+                child: SelectableText(content.isEmpty ? "No logs yet." : content),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close")),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Err reading logs: $e")));
+       }
+    }
+  }
+
+  Future<void> _clearLogs() async {
+     try {
+      final appDocDir = await appPath.getApplicationSupportDirectory();
+      final logFile = File('${appDocDir.parent.path}/files/zivpn_logs/zivpn_core.log');
+      if (await logFile.exists()) {
+        await logFile.writeAsString("");
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Logs cleared")));
+      }
+    } catch (e) {}
   }
 }
