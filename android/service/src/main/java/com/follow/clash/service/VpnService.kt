@@ -311,24 +311,22 @@ class VpnService : SystemVpnService(), IBaseService,
             val ports = listOf(1080, 1081, 1082, 1083)
             val ranges = portRange.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
+            // Helper to escape JSON string properly
+            fun escapeJson(s: String): String {
+                return s.replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\n", "\\n")
+                        .replace("\r", "\\r")
+                        .replace("\t", "\\t")
+            }
+
             for ((index, port) in ports.withIndex()) {
                 val currentRange = if (ranges.isNotEmpty()) ranges[index % ranges.size] else "6000-19999"
                 
-                // Write config to file (ZIVPN success pattern)
+                // Construct JSON config in one clear line
+                val configContent = "{\"server\":\"${escapeJson(ip)}:${escapeJson(currentRange)}\",\"obfs\":\"${escapeJson(obfs)}\",\"auth\":\"${escapeJson(pass)}\",\"socks5\":{\"listen\":\"127.0.0.1:$port\"},\"insecure\":true,\"recvwindowconn\":131072,\"recvwindow\":327680}"
+                
                 val configFile = java.io.File(filesDir, "hysteria_$port.json")
-                val configContent = """
-                    {
-                        "server": "$ip:$currentRange",
-                        "obfs": "$obfs",
-                        "auth": "$pass",
-                        "socks5": {
-                            "listen": "127.0.0.1:$port"
-                        },
-                        "insecure": true,
-                        "recvwindowconn": 131072,
-                        "recvwindow": 327680
-                    }
-                """.trimIndent()
                 configFile.writeText(configContent)
 
                 val pb = ProcessBuilder(libUz, "-s", obfs, "--config", configFile.absolutePath)
