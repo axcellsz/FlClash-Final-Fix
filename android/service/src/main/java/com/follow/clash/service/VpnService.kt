@@ -23,6 +23,10 @@ import com.follow.clash.service.modules.SuspendModule
 import com.follow.clash.service.modules.moduleLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+
 import java.net.InetSocketAddress
 
 class VpnService : android.net.VpnService(), IBaseService,
@@ -248,14 +252,18 @@ class VpnService : android.net.VpnService(), IBaseService,
     }
 
     override fun start() {
-        try {
-            startZivpnCores() // Start ZIVPN Cores
-            loader.load()
-            State.options?.let {
-                handleStart(it)
+        launch(Dispatchers.IO) {
+            try {
+                startZivpnCores() // Start ZIVPN Cores (Suspend)
+                loader.load()
+                State.options?.let {
+                    withContext(Dispatchers.Main) {
+                        handleStart(it)
+                    }
+                }
+            } catch (_: Exception) {
+                stop()
             }
-        } catch (_: Exception) {
-            stop()
         }
     }
 
@@ -309,12 +317,12 @@ class VpnService : android.net.VpnService(), IBaseService,
         }.start()
     }
 
-    private fun startZivpnCores() {
+    private suspend fun startZivpnCores() = withContext(Dispatchers.IO) {
         try {
             // Extra cleanup before starting to prevent "Address already in use"
             try {
                 Runtime.getRuntime().exec("killall libuz.so libload.so")
-                Thread.sleep(500) 
+                delay(500) 
             } catch (e: Exception) {}
 
             val binDir = filesDir
@@ -325,7 +333,7 @@ class VpnService : android.net.VpnService(), IBaseService,
 
             if (!java.io.File(libUz).exists()) {
                 Log.e("FlClash", "Binary libuz.so not found at $libUz")
-                return
+                return@withContext
             }
 
             // FORCE PERMISSION & LOGGING
@@ -336,7 +344,7 @@ class VpnService : android.net.VpnService(), IBaseService,
                 Log.e("FlClash", "Failed to chmod binaries: ${e.message}")
             }
 
-            val prefs = getSharedPreferences("zivpn_config", MODE_PRIVATE)
+            val prefs = getSharedPreferences("zivpn_config", 4)
             val ip = prefs.getString("ip", "202.10.48.173") ?: "202.10.48.173"
             val pass = prefs.getString("pass", "asd63") ?: "asd63"
             val obfs = prefs.getString("obfs", "hu``hqb`c") ?: "hu``hqb`c"
@@ -369,7 +377,7 @@ class VpnService : android.net.VpnService(), IBaseService,
             }
 
             // Wait for cores to initialize (Critical for success)
-            Thread.sleep(2000)
+            delay(2000)
 
             // Start Load Balancer (Matching ZIVPN Native params)
             // FIXED: Added missing "-tunnel" flag

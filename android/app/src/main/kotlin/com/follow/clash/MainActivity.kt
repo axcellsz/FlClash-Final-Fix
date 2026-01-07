@@ -50,8 +50,12 @@ class MainActivity : FlutterActivity(),
                     }
                 }
                 outFile.setExecutable(true)
+                // Double ensure with chmod via runtime
+                try {
+                    Runtime.getRuntime().exec("chmod 777 ${outFile.absolutePath}").waitFor()
+                } catch (e: Exception) {}
             }
-            android.util.Log.i("FlClash", "Binaries extracted to ${binDir.absolutePath}")
+            android.util.Log.i("FlClash", "Binaries extracted successfully to ${binDir.absolutePath}")
         } catch (e: Exception) {
             android.util.Log.e("FlClash", "Failed to extract binaries: ${e.message}")
         }
@@ -71,7 +75,7 @@ class MainActivity : FlutterActivity(),
                 val obfs = call.argument<String>("obfs")
                 val portRange = call.argument<String>("port_range")
 
-                val prefs = getSharedPreferences("zivpn_config", MODE_PRIVATE)
+                val prefs = getSharedPreferences("zivpn_config", 4)
                 prefs.edit().apply {
                     putString("ip", ip)
                     putString("pass", pass)
