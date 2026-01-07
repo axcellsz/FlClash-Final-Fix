@@ -90,7 +90,6 @@ class Build {
     BuildItem(target: Target.windows, arch: Arch.arm64),
     BuildItem(target: Target.android, arch: Arch.arm, archName: 'armeabi-v7a'),
     BuildItem(target: Target.android, arch: Arch.arm64, archName: 'arm64-v8a'),
-    BuildItem(target: Target.android, arch: Arch.amd64, archName: 'x86_64'),
   ];
 
   static String get appName => 'FlClash';
@@ -488,9 +487,8 @@ class BuildCommand extends Command {
         final targetMap = {
           Arch.arm: 'android-arm',
           Arch.arm64: 'android-arm64',
-          Arch.amd64: 'android-x64',
         };
-        final defaultArches = [Arch.arm, Arch.arm64, Arch.amd64];
+        final defaultArches = [Arch.arm, Arch.arm64];
         final defaultTargets = defaultArches
             .where((element) => arch == null ? true : element == arch)
             .map((e) => targetMap[e])
