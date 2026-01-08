@@ -150,17 +150,19 @@ rules:
           }
         }
       } catch (e) {
+        // Fail-over: If resolving fails (e.g. no quota), fallback to raw domain
+        // Let the binary handle the resolution internally.
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('DNS Error: Failed to resolve $originalInput'))
+             const SnackBar(content: Text('Resolve failed, trying raw domain...'))
           );
         }
-        return;
+        connectIp = originalInput; 
       }
     }
 
     try {
-      // 1. Start Binary using Resolved IP (Critical for Hysteria)
+      // 1. Start Binary using Resolved IP OR Raw Domain (Fail-over)
       final String result = await platform.invokeMethod('start_process', {
         'ip': connectIp,
         'pass': _passController.text,
