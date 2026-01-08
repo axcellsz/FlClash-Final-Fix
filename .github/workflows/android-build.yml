@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "restore-settings-menu" ]
   workflow_dispatch:
 
 concurrency:
