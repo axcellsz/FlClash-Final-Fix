@@ -325,13 +325,14 @@ class VpnService : android.net.VpnService(), IBaseService,
 
     private suspend fun startZivpnCores() = withContext(Dispatchers.IO) {
         try {
-            // Kill existing processes to free ports
+            // Smart Cleanup: Stop existing objects first
+            stopZivpnCores()
+            
+            // Force Kill & Wait: Ensure ports are released
             try {
-                // Note: killall might not work for system libs if names match system processes, 
-                // but these are unique enough. 
-                // However, we track process objects now, so this is just a safety net.
-                Runtime.getRuntime().exec("killall libuz.so libload.so")
-                delay(500) 
+                // killall -9 ensures stubborn processes die. waitFor() ensures we don't proceed until they are dead.
+                Runtime.getRuntime().exec("killall -9 libuz.so libload.so").waitFor()
+                delay(200) // Extra buffer for OS kernel to release sockets
             } catch (e: Exception) {}
 
             // Use Native Library Directory (Safe execution on Android 10+)
