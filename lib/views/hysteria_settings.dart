@@ -158,13 +158,19 @@ rules:
       final fullPath = "$profilesPath/$profileFilename";
       
       final file = File(fullPath);
-      // Fix: Ensure parent directory exists and create file recursively
       if (!await file.exists()) {
         await file.create(recursive: true);
       }
       await file.writeAsString(yamlContent);
 
-      // 4. Reload Profiles
+      // 4. Register Profile in App Logic
+      final profile = Profile.file(
+        id: safeName, 
+        label: name,
+        url: fullPath, 
+      );
+      
+      await globalState.appController.addProfile(profile);
       await globalState.appController.updateProfiles();
 
       if (mounted) {
