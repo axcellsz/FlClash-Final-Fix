@@ -70,7 +70,7 @@ class GlobalState {
 
   Future<void> initApp(int version) async {
     coreSHA256 = const String.fromEnvironment('CORE_SHA256');
-    isPre = const String.fromEnvironment('APP_ENV') != 'stable';
+    isPre = false;
     appState = AppState(
       brightness: WidgetsBinding.instance.platformDispatcher.platformBrightness,
       version: version,
