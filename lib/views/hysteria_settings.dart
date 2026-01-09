@@ -164,10 +164,11 @@ rules:
       await file.writeAsString(yamlContent);
 
       // 4. Register Profile in App Logic
-      final profile = Profile.file(
-        id: safeName, 
+      final profile = Profile.normal(
         label: name,
-        url: fullPath, 
+        url: '', // Empty URL indicates a local file profile
+      ).copyWith(
+        id: safeName,
       );
       
       await globalState.appController.addProfile(profile);
