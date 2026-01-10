@@ -88,6 +88,25 @@ class MainActivity : FlutterActivity(),
                 
                 // Signal service to restart/reload if needed (optional implementation)
                 result.success("Config saved. Please start/restart VPN.")
+            } else if (call.method == "request_battery") {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                    if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                        try {
+                            val intent = android.content.Intent()
+                            intent.action = android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                            intent.data = android.net.Uri.parse("package:$packageName")
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("ERR", e.message, null)
+                        }
+                    } else {
+                        result.success(false) // Already ignored
+                    }
+                } else {
+                    result.success(false)
+                }
             } else {
                 result.notImplemented()
             }

@@ -179,6 +179,12 @@ $dnsConfig
       await globalState.appController.addProfile(profile);
       await globalState.appController.updateProfiles();
 
+      // Auto-Request Battery Optimization Ignore
+      try {
+        const platform = MethodChannel('com.follow.clash/hysteria');
+        await platform.invokeMethod('request_battery');
+      } catch (_) {}
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Profile "$name" created! Select it in Profiles menu.')),
