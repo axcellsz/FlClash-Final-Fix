@@ -64,6 +64,33 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
     final bool isIp = RegExp(r'^[\d\.]+$').hasMatch(host);
     String yamlContent;
 
+    // 3. DNS Configuration (Universal Full DoH Anti-Leak)
+    const String dnsConfig = '''
+dns:
+  enable: true
+  ipv6: false
+  listen: 0.0.0.0:1053
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - '*'
+    - '+.lan'
+    - '+.local'
+  default-nameserver:
+    - 8.8.8.8
+    - 1.1.1.1
+  nameserver:
+    - https://1.1.1.1/dns-query
+    - https://8.8.8.8/dns-query
+  fallback:
+    - https://1.0.0.1/dns-query
+    - https://8.8.4.4/dns-query
+  fallback-filter:
+    geoip: true
+    ipcidr:
+      - 240.0.0.0/4
+''';
+
     if (!isIp) {
       // TCP Optimized for Domain (Zero Quota)
       yamlContent = '''
@@ -93,21 +120,10 @@ proxy-groups:
 rules:
   - MATCH,PROXY
 
-dns:
-  enable: true
-  ipv6: false
-  listen: 0.0.0.0:1053
-  enhanced-mode: fake-ip
-  fake-ip-range: 198.18.0.1/16
-  nameserver:
-    - https://1.1.1.1/dns-query
-    - https://8.8.8.8/dns-query
-  fallback:
-    - https://1.0.0.1/dns-query
-    - https://8.8.4.4/dns-query
+$dnsConfig
 ''';
     } else {
-      // Standard UDP for IP
+      // Standard UDP for IP (With Full DoH)
       yamlContent = '''
 # HYSTERIA_CONFIG: $metadataString
 mixed-port: 7890
@@ -116,37 +132,26 @@ bind-address: '*'
 mode: rule
 log-level: info
 external-controller: '127.0.0.1:9090'
-dns:
-  enable: true
-  ipv6: false
-  enhanced-mode: fake-ip
-  fake-ip-range: 198.18.0.1/16
-  use-hosts: true
-  nameserver:
-    - https://1.1.1.1/dns-query
-    - https://8.8.8.8/dns-query
-  fallback:
-    - https://1.0.0.1/dns-query
-    - https://8.8.4.4/dns-query
-  fallback-filter:
-    geoip: false
-    ipcidr:
-      - 240.0.0.0/4
+
 proxies:
   - name: "Hysteria Turbo"
     type: socks5
     server: 127.0.0.1
     port: 7777
     udp: true
+
 proxy-groups:
   - name: "ZIVPN Turbo"
     type: select
     proxies:
       - "Hysteria Turbo"
       - DIRECT
+
 rules:
   - IP-CIDR, $host/32, DIRECT
   - MATCH, ZIVPN Turbo
+
+$dnsConfig
 ''';
     }
 

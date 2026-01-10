@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "feature/full-doh-universal" ]
     tags: [ "v*" ]
   workflow_dispatch:
 
