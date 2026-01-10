@@ -22,6 +22,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
   final TextEditingController _obfsController = TextEditingController();
   final TextEditingController _portRangeController = TextEditingController();
   final TextEditingController _mtuController = TextEditingController();
+  bool _enableKeepAlive = true;
   
   @override
   void initState() {
@@ -90,6 +91,17 @@ dns:
     ipcidr:
       - 240.0.0.0/4
 ''';
+    
+    // Keep-Alive Group Block
+    final String keepAliveGroup = _enableKeepAlive ? '''
+  - name: "Keep-Alive"
+    type: url-test
+    proxies:
+      - "${isIp ? "Hysteria Turbo" : "ZIVPN-Core"}"
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 20
+    tolerance: 500
+''' : '';
 
     if (!isIp) {
       // TCP Optimized for Domain (Zero Quota)
@@ -116,15 +128,7 @@ proxy-groups:
     type: select
     proxies:
       - "ZIVPN-Core"
-
-  - name: "Keep-Alive"
-    type: url-test
-    proxies:
-      - "ZIVPN-Core"
-    url: 'http://www.gstatic.com/generate_204'
-    interval: 300
-    tolerance: 500
-    lazy: true
+$keepAliveGroup
 
 rules:
   - MATCH,PROXY
@@ -155,15 +159,7 @@ proxy-groups:
     proxies:
       - "Hysteria Turbo"
       - DIRECT
-
-  - name: "Keep-Alive"
-    type: url-test
-    proxies:
-      - "Hysteria Turbo"
-    url: 'http://www.gstatic.com/generate_204'
-    interval: 300
-    tolerance: 500
-    lazy: true
+$keepAliveGroup
 
 rules:
   - IP-CIDR, $host/32, DIRECT
@@ -257,6 +253,17 @@ $dnsConfig
               TextField(
                 controller: _obfsController,
                 decoration: const InputDecoration(labelText: 'Obfs', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                title: const Text('Enable Keep-Alive Mode'),
+                subtitle: const Text('Prevents NAT timeout (NAT Hole). Disable if unstable.'),
+                value: _enableKeepAlive,
+                onChanged: (bool value) {
+                  setState(() {
+                    _enableKeepAlive = value;
+                  });
+                },
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
