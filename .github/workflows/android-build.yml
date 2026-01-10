@@ -96,12 +96,14 @@ jobs:
           name: FlClash-armeabi-v7a
           path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
 
-      - name: Create Release & Upload APK
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/*.apk
+          name: FlClash Hysteria Turbo ${{ github.ref_name }}
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
