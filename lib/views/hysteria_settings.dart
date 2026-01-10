@@ -117,6 +117,14 @@ proxy-groups:
     proxies:
       - "ZIVPN-Core"
 
+  - name: "Keep-Alive"
+    type: url-test
+    proxies:
+      - "ZIVPN-Core"
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 20
+    tolerance: 50
+
 rules:
   - MATCH,PROXY
 
@@ -146,6 +154,14 @@ proxy-groups:
     proxies:
       - "Hysteria Turbo"
       - DIRECT
+
+  - name: "Keep-Alive"
+    type: url-test
+    proxies:
+      - "Hysteria Turbo"
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 20
+    tolerance: 50
 
 rules:
   - IP-CIDR, $host/32, DIRECT
