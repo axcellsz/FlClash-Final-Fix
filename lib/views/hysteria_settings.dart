@@ -122,8 +122,9 @@ proxy-groups:
     proxies:
       - "ZIVPN-Core"
     url: 'http://www.gstatic.com/generate_204'
-    interval: 20
-    tolerance: 50
+    interval: 300
+    tolerance: 500
+    lazy: true
 
 rules:
   - MATCH,PROXY
@@ -138,7 +139,7 @@ mixed-port: 7890
 allow-lan: true
 bind-address: '*'
 mode: rule
-log-level: info
+log-level: debug
 external-controller: '127.0.0.1:9090'
 
 proxies:
@@ -160,8 +161,9 @@ proxy-groups:
     proxies:
       - "Hysteria Turbo"
     url: 'http://www.gstatic.com/generate_204'
-    interval: 20
-    tolerance: 50
+    interval: 300
+    tolerance: 500
+    lazy: true
 
 rules:
   - IP-CIDR, $host/32, DIRECT

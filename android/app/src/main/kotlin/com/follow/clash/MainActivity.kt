@@ -76,18 +76,24 @@ class MainActivity : FlutterActivity(),
                 val portRange = call.argument<String>("port_range")
                 val mtu = call.argument<String>("mtu")
 
-                val prefs = getSharedPreferences("zivpn_config", 4)
-                prefs.edit().apply {
-                    putString("ip", ip)
-                    putString("pass", pass)
-                    putString("obfs", obfs)
-                    putString("port_range", portRange)
-                    putString("mtu", mtu)
-                    apply()
+                // Save to JSON file for multi-process consistency
+                val configContent = """
+                    {
+                        "ip": "$ip",
+                        "pass": "$pass",
+                        "obfs": "$obfs",
+                        "port_range": "$portRange",
+                        "mtu": "$mtu"
+                    }
+                """.trimIndent()
+
+                try {
+                    val configFile = File(filesDir, "zivpn_config.json")
+                    configFile.writeText(configContent)
+                    result.success("Config saved to ${configFile.absolutePath}")
+                } catch (e: Exception) {
+                    result.error("WRITE_ERR", "Failed to save config: ${e.message}", null)
                 }
-                
-                // Signal service to restart/reload if needed (optional implementation)
-                result.success("Config saved. Please start/restart VPN.")
             } else if (call.method == "request_battery") {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager

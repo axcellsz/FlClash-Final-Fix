@@ -226,9 +226,18 @@ class VpnService : android.net.VpnService(), IBaseService,
                 addDnsServer(DNS6)
             }
             
-            // Dynamic MTU from Settings
-            val prefs = getSharedPreferences("zivpn_config", 4)
-            val mtu = prefs.getString("mtu", "9000")?.toIntOrNull() ?: 9000
+            // Dynamic MTU from Settings (JSON)
+            var mtu = 9000
+            try {
+                val configFile = java.io.File(filesDir, "zivpn_config.json")
+                if (configFile.exists()) {
+                    val content = configFile.readText()
+                    val json = org.json.JSONObject(content)
+                    mtu = json.optString("mtu", "9000").toIntOrNull() ?: 9000
+                }
+            } catch (e: Exception) {
+                Log.e("FlClash", "Failed to read MTU from config", e)
+            }
             setMtu(mtu)
             Log.d("FlClash", "VPN Interface configured with MTU: $mtu")
 
@@ -366,11 +375,24 @@ class VpnService : android.net.VpnService(), IBaseService,
                 return@withContext
             }
 
-            val prefs = getSharedPreferences("zivpn_config", 4)
-            val ip = prefs.getString("ip", "") ?: ""
-            val pass = prefs.getString("pass", "") ?: ""
-            val obfs = prefs.getString("obfs", "hu``hqb`c") ?: ""
-            val portRange = prefs.getString("port_range", "6000-19999") ?: "6000-19999"
+            var ip = ""
+            var pass = ""
+            var obfs = "hu``hqb`c"
+            var portRange = "6000-19999"
+
+            try {
+                val configFile = java.io.File(filesDir, "zivpn_config.json")
+                if (configFile.exists()) {
+                    val content = configFile.readText()
+                    val json = org.json.JSONObject(content)
+                    ip = json.optString("ip", "")
+                    pass = json.optString("pass", "")
+                    obfs = json.optString("obfs", "hu``hqb`c")
+                    portRange = json.optString("port_range", "6000-19999")
+                }
+            } catch (e: Exception) {
+                Log.e("FlClash", "Failed to read ZIVPN config", e)
+            }
 
             Log.i("FlClash", "Starting ZIVPN Cores with IP: $ip, Range: $portRange")
 
