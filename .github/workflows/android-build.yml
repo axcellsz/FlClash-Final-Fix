@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "main", "feature/full-doh-universal" ]
+    branches: [ "main", "feature/full-doh-universal", "feature/smart-import-clipboard" ]
     tags: [ "v*" ]
   workflow_dispatch:
 
