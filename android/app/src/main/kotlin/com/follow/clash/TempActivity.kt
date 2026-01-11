@@ -31,6 +31,12 @@ class TempActivity : Activity(),
                     State.handleToggleAction()
                 }
             }
+
+            QuickAction.RESTART.action -> {
+                launch {
+                    State.handleRestartServiceAction()
+                }
+            }
         }
         finish()
     }

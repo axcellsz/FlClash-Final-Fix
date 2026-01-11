@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 enum class RunState {
     START, PENDING, STOP
@@ -50,6 +51,12 @@ object State {
             }
         }
         action?.invoke()
+    }
+
+    suspend fun handleRestartServiceAction() {
+        handleStopServiceAction()
+        delay(1000)
+        handleStartServiceAction()
     }
 
     suspend fun handleSyncState() {

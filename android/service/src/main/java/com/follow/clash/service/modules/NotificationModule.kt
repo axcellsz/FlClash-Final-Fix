@@ -112,7 +112,11 @@ class NotificationModule(private val service: Service) : Module() {
                 clearActions()
                 addAction(
                     0, params.stopText, QuickAction.STOP.quickIntent.toPendingIntent
-                ).build()
+                )
+                addAction(
+                    0, "Restart", QuickAction.RESTART.quickIntent.toPendingIntent
+                )
+                build()
             })
     }
 

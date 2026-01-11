@@ -319,6 +319,45 @@ class VpnService : android.net.VpnService(), IBaseService,
     }
 
     // --- ZIVPN Turbo Native Logic ---
+    
+    private var monitorJob: kotlinx.coroutines.Job? = null
+
+    private fun startCoreMonitor() {
+        monitorJob?.cancel()
+        monitorJob = launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(2000) // Check every 2 seconds
+                if (coreProcesses.isNotEmpty()) {
+                    var allAlive = true
+                    for (proc in coreProcesses) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            if (!proc.isAlive) {
+                                allAlive = false
+                                break
+                            }
+                        } else {
+                            // Fallback for older Android (less reliable but works)
+                            try {
+                                proc.exitValue()
+                                allAlive = false // If exitValue doesn't throw, process is dead
+                                break
+                            } catch (e: IllegalThreadStateException) {
+                                // Process is still running
+                            }
+                        }
+                    }
+
+                    if (!allAlive) {
+                        Log.e("FlClash", "CRITICAL: One or more ZIVPN Cores died unexpectedly!")
+                        withContext(Dispatchers.Main) {
+                            stop() // Stop VPN Service
+                        }
+                        break
+                    }
+                }
+            }
+        }
+    }
 
     private fun startProcessLogger(process: Process, tag: String) {
         val logDir = java.io.File(filesDir, "zivpn_logs")
@@ -426,6 +465,8 @@ class VpnService : android.net.VpnService(), IBaseService,
             startProcessLogger(lbProcess, "LoadBalancer")
 
             Log.i("FlClash", "ZIVPN Turbo Engine started successfully on port 7777")
+            
+            startCoreMonitor() // Start monitoring health
 
         } catch (e: Exception) {
             Log.e("FlClash", "Failed to start ZIVPN Cores: ${e.message}", e)
@@ -433,6 +474,7 @@ class VpnService : android.net.VpnService(), IBaseService,
     }
 
     private fun stopZivpnCores() {
+        monitorJob?.cancel() // Stop monitoring
         coreProcesses.forEach { 
             try {
                 it.destroy() 
