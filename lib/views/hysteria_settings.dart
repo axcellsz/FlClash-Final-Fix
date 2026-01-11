@@ -32,6 +32,43 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
     _obfsController.text = "hu``hqb`c";
     _portRangeController.text = "6000-19999";
     _mtuController.text = "9000";
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardForConfig());
+  }
+
+  Future<void> _checkClipboardForConfig() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text == null || data!.text!.isEmpty) return;
+
+      var text = data.text!.trim();
+      if (text.contains('{') && text.contains('}')) {
+        final startIndex = text.indexOf('{');
+        final endIndex = text.lastIndexOf('}');
+        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+           text = text.substring(startIndex, endIndex + 1);
+        }
+      }
+
+      final jsonMap = jsonDecode(text);
+      // Simple check for key indicators of a hysteria config
+      if (jsonMap.containsKey('ip') && jsonMap.containsKey('pass') && jsonMap.containsKey('port_range')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Hysteria config detected in clipboard!'),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'IMPORT',
+                onPressed: _importFromClipboard,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      // Ignore invalid JSON or clipboard errors quietly
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -211,10 +248,95 @@ $dnsConfig
     }
   }
 
+  Future<void> _importFromClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text == null || data!.text!.isEmpty) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Clipboard is empty')));
+        return;
+      }
+
+      var text = data.text!.trim();
+      
+      // Handle potential prefixes like "# HYSTERIA_CONFIG: "
+      if (text.contains('{')) {
+        final startIndex = text.indexOf('{');
+        final endIndex = text.lastIndexOf('}');
+        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+          text = text.substring(startIndex, endIndex + 1);
+        }
+      }
+
+      Map<String, dynamic> jsonMap;
+      
+      try {
+        jsonMap = jsonDecode(text);
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid JSON format')));
+        return;
+      }
+
+      // Strict Validation
+      bool hasIp = jsonMap.containsKey('ip') || jsonMap.containsKey('server');
+      bool hasPass = jsonMap.containsKey('pass') || jsonMap.containsKey('auth') || jsonMap.containsKey('password');
+      bool hasObfs = jsonMap.containsKey('obfs');
+      bool hasRange = jsonMap.containsKey('port_range');
+      bool hasMtu = jsonMap.containsKey('mtu');
+
+      List<String> missing = [];
+      if (!hasIp) missing.add('IP/Server');
+      if (!hasPass) missing.add('Password');
+      if (!hasObfs) missing.add('Obfs');
+      if (!hasRange) missing.add('Port Range');
+      if (!hasMtu) missing.add('MTU');
+
+      if (missing.isNotEmpty) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Missing fields: ${missing.join(", ")}')));
+        return;
+      }
+
+      setState(() {
+        // IP / Server
+        if (jsonMap.containsKey('ip')) _ipController.text = jsonMap['ip'].toString();
+        else if (jsonMap.containsKey('server')) _ipController.text = jsonMap['server'].toString().split(':').first;
+
+        // Password / Auth
+        if (jsonMap.containsKey('pass')) _passController.text = jsonMap['pass'].toString();
+        else if (jsonMap.containsKey('auth')) _passController.text = jsonMap['auth'].toString();
+        else if (jsonMap.containsKey('password')) _passController.text = jsonMap['password'].toString();
+
+        // Obfs
+        _obfsController.text = jsonMap['obfs'].toString();
+
+        // Port Range
+        _portRangeController.text = jsonMap['port_range'].toString();
+
+        // MTU
+        _mtuController.text = jsonMap['mtu'].toString();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Config imported successfully!')));
+      }
+
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Hysteria Profile')),
+      appBar: AppBar(
+        title: const Text('New Hysteria Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.paste),
+            tooltip: 'Import from Clipboard (JSON)',
+            onPressed: _importFromClipboard,
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
