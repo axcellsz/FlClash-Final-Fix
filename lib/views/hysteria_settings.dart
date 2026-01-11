@@ -248,6 +248,25 @@ $dnsConfig
     }
   }
 
+  Future<void> _exportToClipboard() async {
+    final metadata = {
+      "ip": _ipController.text.trim(),
+      "pass": _passController.text.trim(),
+      "obfs": _obfsController.text.trim(),
+      "port_range": _portRangeController.text.trim(),
+      "mtu": _mtuController.text.trim()
+    };
+    
+    final configString = "# HYSTERIA_CONFIG: ${jsonEncode(metadata)}";
+    await Clipboard.setData(ClipboardData(text: configString));
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Config copied to clipboard!')),
+      );
+    }
+  }
+
   Future<void> _importFromClipboard() async {
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -330,6 +349,11 @@ $dnsConfig
       appBar: AppBar(
         title: const Text('New Hysteria Profile'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.copy),
+            tooltip: 'Copy Config to Clipboard',
+            onPressed: _exportToClipboard,
+          ),
           IconButton(
             icon: const Icon(Icons.paste),
             tooltip: 'Import from Clipboard (JSON)',
