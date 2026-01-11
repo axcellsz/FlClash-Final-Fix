@@ -75,6 +75,7 @@ class MainActivity : FlutterActivity(),
                 val obfs = call.argument<String>("obfs")
                 val portRange = call.argument<String>("port_range")
                 val mtu = call.argument<String>("mtu")
+                val autoBoot = call.argument<Boolean>("auto_boot") ?: false
 
                 // Save to JSON file for multi-process consistency
                 val configContent = """
@@ -83,7 +84,8 @@ class MainActivity : FlutterActivity(),
                         "pass": "$pass",
                         "obfs": "$obfs",
                         "port_range": "$portRange",
-                        "mtu": "$mtu"
+                        "mtu": "$mtu",
+                        "auto_boot": $autoBoot
                     }
                 """.trimIndent()
 

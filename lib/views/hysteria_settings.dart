@@ -23,6 +23,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
   final TextEditingController _portRangeController = TextEditingController();
   final TextEditingController _mtuController = TextEditingController();
   bool _enableKeepAlive = true;
+  bool _autoBoot = false;
   
   @override
   void initState() {
@@ -94,7 +95,8 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
       "pass": pass,
       "obfs": obfs,
       "port_range": portRange,
-      "mtu": mtu
+      "mtu": mtu,
+      "auto_boot": _autoBoot
     };
     final metadataString = jsonEncode(metadata);
 
@@ -401,6 +403,16 @@ $dnsConfig
                 decoration: const InputDecoration(labelText: 'Obfs', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 10),
+              SwitchListTile(
+                title: const Text('Auto-Start on Boot'),
+                subtitle: const Text('Automatically start VPN when device restarts.'),
+                value: _autoBoot,
+                onChanged: (bool value) {
+                  setState(() {
+                    _autoBoot = value;
+                  });
+                },
+              ),
               SwitchListTile(
                 title: const Text('Enable Keep-Alive Mode'),
                 subtitle: const Text('Prevents NAT timeout (NAT Hole). Disable if unstable.'),

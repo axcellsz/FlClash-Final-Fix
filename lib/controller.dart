@@ -609,6 +609,7 @@ class AppController {
             'obfs': config['obfs'],
             'port_range': config['port_range'],
             'mtu': config['mtu'] ?? "9000",
+            'auto_boot': config['auto_boot'] ?? false,
           });
         }
       }
