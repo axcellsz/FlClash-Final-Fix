@@ -6,11 +6,11 @@ import android.util.Log
 import com.follow.clash.service.models.ZivpnConfig
 import kotlinx.coroutines.*
 import java.io.File
-
+import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.URL
 
-// ZivpnManager handles Native Hysteria Cores and Network Monitoring
 class ZivpnManager(
     private val context: Context,
     private val onCoreDied: () -> Unit
@@ -24,7 +24,6 @@ class ZivpnManager(
     fun start() {
         scope.launch {
             try {
-                // ... (Existing start logic) ...
                 // 1. Aggressive Clean Up
                 stop()
                 
@@ -128,13 +127,47 @@ class ZivpnManager(
         } catch (e: Exception) {}
         Log.i("FlClash", "ZIVPN Cores stopped")
     }
-    
-    // ... startMonitor ...
 
-import java.net.HttpURLConnection
-import java.net.URL
+    private fun startMonitor(config: ZivpnConfig) {
+        monitorJob?.cancel()
+        monitorJob = scope.launch {
+            val startTime = System.currentTimeMillis()
+            while (isActive) {
+                delay(3000) // Check every 3 seconds
+                if (coreProcesses.isNotEmpty()) {
+                    var aliveCount = 0
+                    for (proc in coreProcesses) {
+                        val isAlive = try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                proc.isAlive
+                            } else {
+                                proc.exitValue()
+                                false
+                            }
+                        } catch (e: IllegalThreadStateException) {
+                            true
+                        }
+                        if (isAlive) aliveCount++
+                    }
 
-// ... (inside class ZivpnManager)
+                    // Only trigger failure if most cores died
+                    if (aliveCount < (coreProcesses.size / 2)) {
+                        val uptime = System.currentTimeMillis() - startTime
+                        Log.e("FlClash", "CRITICAL: ZIVPN Engine crashed. Uptime: ${uptime}ms")
+                        
+                        // Prevent infinite restart loop: if died within 10s, don't auto-stop everything immediately
+                        if (uptime > 10000) {
+                            withContext(Dispatchers.Main) {
+                                onCoreDied()
+                            }
+                        }
+                        stop()
+                        break
+                    }
+                }
+            }
+        }
+    }
 
     private fun startNetworkMonitor(timeoutSec: Int) {
         netMonitorJob?.cancel()
@@ -249,49 +282,6 @@ import java.net.URL
             java.io.FileWriter(logFile, true).use { it.write(logLine) }
             if (isError) Log.e("FlClash", msg) else Log.i("FlClash", msg)
         } catch (e: Exception) {}
-    }
-
-
-
-    private fun startMonitor(config: ZivpnConfig) {
-        monitorJob?.cancel()
-        monitorJob = scope.launch {
-            val startTime = System.currentTimeMillis()
-            while (isActive) {
-                delay(3000) // Check every 3 seconds
-                if (coreProcesses.isNotEmpty()) {
-                    var aliveCount = 0
-                    for (proc in coreProcesses) {
-                        val isAlive = try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                proc.isAlive
-                            } else {
-                                proc.exitValue()
-                                false
-                            }
-                        } catch (e: IllegalThreadStateException) {
-                            true
-                        }
-                        if (isAlive) aliveCount++
-                    }
-
-                    // Only trigger failure if most cores died
-                    if (aliveCount < (coreProcesses.size / 2)) {
-                        val uptime = System.currentTimeMillis() - startTime
-                        Log.e("FlClash", "CRITICAL: ZIVPN Engine crashed. Uptime: ${uptime}ms")
-                        
-                        // Prevent infinite restart loop: if died within 10s, don't auto-stop everything immediately
-                        if (uptime > 10000) {
-                            withContext(Dispatchers.Main) {
-                                onCoreDied()
-                            }
-                        }
-                        stop()
-                        break
-                    }
-                }
-            }
-        }
     }
 
     private fun startProcessLogger(process: Process, tag: String) {
