@@ -10,6 +10,7 @@ import java.io.File
 import java.net.InetSocketAddress
 import java.net.Socket
 
+// ZivpnManager handles Native Hysteria Cores and Network Monitoring
 class ZivpnManager(
     private val context: Context,
     private val onCoreDied: () -> Unit
