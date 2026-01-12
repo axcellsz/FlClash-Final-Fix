@@ -30,6 +30,8 @@ import kotlinx.coroutines.isActive
 
 import java.net.InetSocketAddress
 
+import com.follow.clash.service.models.ZivpnConfig // Added Import
+
 class VpnService : android.net.VpnService(), IBaseService,
     CoroutineScope by CoroutineScope(Dispatchers.Default) {
 
@@ -42,11 +44,11 @@ class VpnService : android.net.VpnService(), IBaseService,
         install(SuspendModule(self))
     }
 
-    // --- ZIVPN Turbo Logic Variables ---
-    private val coreProcesses = mutableListOf<Process>()
+    // --- ZIVPN Turbo Logic ---
+    private val zivpnManager = ZivpnManager(this) { stop() }
     private var wakeLock: android.os.PowerManager.WakeLock? = null
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
-    // -----------------------------------
+    // -------------------------
 
     override fun onCreate() {
         super.onCreate()
@@ -74,7 +76,7 @@ class VpnService : android.net.VpnService(), IBaseService,
 
     override fun onDestroy() {
         releaseLocks()
-        stopZivpnCores() 
+        zivpnManager.stop()
         handleDestroy()
         super.onDestroy()
     }
@@ -227,20 +229,10 @@ class VpnService : android.net.VpnService(), IBaseService,
                 addDnsServer(DNS6)
             }
             
-            // Dynamic MTU from Settings (JSON)
-            var mtu = 9000
-            try {
-                val configFile = java.io.File(filesDir, "zivpn_config.json")
-                if (configFile.exists()) {
-                    val content = configFile.readText()
-                    val json = org.json.JSONObject(content)
-                    mtu = json.optString("mtu", "9000").toIntOrNull() ?: 9000
-                }
-            } catch (e: Exception) {
-                Log.e("FlClash", "Failed to read MTU from config", e)
-            }
-            setMtu(mtu)
-            Log.d("FlClash", "VPN Interface configured with MTU: $mtu")
+            // Dynamic MTU from Settings (Clean Architecture)
+            val config = ZivpnConfig.fromFile(java.io.File(filesDir, "zivpn_config.json"))
+            setMtu(config.mtu)
+            Log.d("FlClash", "VPN Interface configured with MTU: ${config.mtu}")
 
             options.accessControl.let { accessControl ->
                 if (accessControl.enable) {
@@ -298,7 +290,7 @@ class VpnService : android.net.VpnService(), IBaseService,
 
         launch(Dispatchers.IO) {
             try {
-                startZivpnCores() // Start ZIVPN Cores
+                zivpnManager.start() // Start ZIVPN Cores
                 loader.load()
                 State.options?.let {
                     withContext(Dispatchers.Main) {
@@ -312,180 +304,11 @@ class VpnService : android.net.VpnService(), IBaseService,
     }
 
     override fun stop() {
-        stopZivpnCores() // Stop ZIVPN Cores
+        zivpnManager.stop() // Stop ZIVPN Cores
         releaseLocks() // Release Locks
         loader.cancel()
         Core.stopTun()
         stopSelf()
-    }
-
-    // --- ZIVPN Turbo Native Logic ---
-    
-    private var monitorJob: kotlinx.coroutines.Job? = null
-
-    private fun startCoreMonitor() {
-        monitorJob?.cancel()
-        monitorJob = launch(Dispatchers.IO) {
-            while (isActive) {
-                delay(2000) // Check every 2 seconds
-                if (coreProcesses.isNotEmpty()) {
-                    var allAlive = true
-                    for (proc in coreProcesses) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            if (!proc.isAlive) {
-                                allAlive = false
-                                break
-                            }
-                        } else {
-                            // Fallback for older Android (less reliable but works)
-                            try {
-                                proc.exitValue()
-                                allAlive = false // If exitValue doesn't throw, process is dead
-                                break
-                            } catch (e: IllegalThreadStateException) {
-                                // Process is still running
-                            }
-                        }
-                    }
-
-                    if (!allAlive) {
-                        Log.e("FlClash", "CRITICAL: One or more ZIVPN Cores died unexpectedly!")
-                        withContext(Dispatchers.Main) {
-                            stop() // Stop VPN Service
-                        }
-                        break
-                    }
-                }
-            }
-        }
-    }
-
-    private fun startProcessLogger(process: Process, tag: String) {
-        val logDir = java.io.File(filesDir, "zivpn_logs")
-        if (!logDir.exists()) logDir.mkdirs()
-        val logFile = java.io.File(logDir, "zivpn_core.log")
-        
-        val writer = java.io.FileWriter(logFile, true)
-        val dateFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-
-        fun writeLog(msg: String, isError: Boolean) {
-            val timestamp = dateFormat.format(java.util.Date())
-            val type = if (isError) "ERR" else "OUT"
-            val logLine = "[$timestamp] [$tag] [$type] $msg\n"
-            if (isError) Log.e("FlClash", "[$tag] $msg") else Log.i("FlClash", "[$tag] $msg")
-            try {
-                writer.write(logLine)
-                writer.flush()
-            } catch (e: Exception) {}
-        }
-
-        Thread {
-            try {
-                process.inputStream.bufferedReader().use { reader ->
-                    reader.forEachLine { writeLog(it, false) }
-                }
-            } catch (e: Exception) {}
-        }.start()
-        
-        Thread {
-            try {
-                process.errorStream.bufferedReader().use { reader ->
-                    reader.forEachLine { writeLog(it, true) }
-                }
-            } catch (e: Exception) {}
-        }.start()
-    }
-
-    private suspend fun startZivpnCores() = withContext(Dispatchers.IO) {
-        try {
-            stopZivpnCores()
-            try {
-                Runtime.getRuntime().exec("pkill -9 -f libuz.so").waitFor()
-                Runtime.getRuntime().exec("pkill -9 -f libload.so").waitFor()
-            } catch (e: Exception) {}
-            
-            delay(500) 
-
-            val nativeDir = applicationInfo.nativeLibraryDir
-            val libUz = java.io.File(nativeDir, "libuz.so").absolutePath
-            val libLoad = java.io.File(nativeDir, "libload.so").absolutePath
-
-            if (!java.io.File(libUz).exists()) {
-                Log.e("FlClash", "Native Binary libuz.so not found")
-                return@withContext
-            }
-
-            var ip = ""
-            var pass = ""
-            var obfs = "hu``hqb`c"
-            var portRange = "6000-19999"
-
-            try {
-                val configFile = java.io.File(filesDir, "zivpn_config.json")
-                if (configFile.exists()) {
-                    val content = configFile.readText()
-                    val json = org.json.JSONObject(content)
-                    ip = json.optString("ip", "")
-                    pass = json.optString("pass", "")
-                    obfs = json.optString("obfs", "hu``hqb`c")
-                    portRange = json.optString("port_range", "6000-19999")
-                }
-            } catch (e: Exception) {
-                Log.e("FlClash", "Failed to read ZIVPN config", e)
-            }
-
-            Log.i("FlClash", "Starting ZIVPN Cores with IP: $ip, Range: $portRange")
-
-            val tunnels = mutableListOf<String>()
-            val ports = listOf(1080, 1081, 1082, 1083)
-            val ranges = portRange.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-
-            for ((index, port) in ports.withIndex()) {
-                val currentRange = if (ranges.isNotEmpty()) ranges[index % ranges.size] else "6000-19999"
-                val configContent = """{"server":"$ip:$currentRange","obfs":"$obfs","auth":"$pass","socks5":{"listen":"127.0.0.1:$port"},"insecure":true,"recvwindowconn":131072,"recvwindow":327680}"""
-                
-                val pb = ProcessBuilder(libUz, "-s", obfs, "--config", configContent)
-                pb.environment()["LD_LIBRARY_PATH"] = nativeDir
-                
-                val process = pb.start()
-                coreProcesses.add(process)
-                startProcessLogger(process, "Core-$port")
-                tunnels.add("127.0.0.1:$port")
-                delay(100)
-            }
-
-            delay(1000)
-
-            val lbArgs = mutableListOf(libLoad, "-lport", "7777", "-tunnel")
-            lbArgs.addAll(tunnels)
-            val lbPb = ProcessBuilder(lbArgs)
-            lbPb.environment()["LD_LIBRARY_PATH"] = nativeDir
-            
-            val lbProcess = lbPb.start()
-            coreProcesses.add(lbProcess)
-            startProcessLogger(lbProcess, "LoadBalancer")
-
-            Log.i("FlClash", "ZIVPN Turbo Engine started successfully on port 7777")
-            
-            startCoreMonitor() // Start monitoring health
-
-        } catch (e: Exception) {
-            Log.e("FlClash", "Failed to start ZIVPN Cores: ${e.message}", e)
-        }
-    }
-
-    private fun stopZivpnCores() {
-        monitorJob?.cancel() // Stop monitoring
-        coreProcesses.forEach { 
-            try {
-                it.destroy() 
-            } catch(e: Exception) {}
-        }
-        coreProcesses.clear()
-        try {
-            Runtime.getRuntime().exec("killall libuz.so libload.so")
-        } catch (e: Exception) {}
-        Log.i("FlClash", "ZIVPN Cores stopped")
     }
 
     companion object {

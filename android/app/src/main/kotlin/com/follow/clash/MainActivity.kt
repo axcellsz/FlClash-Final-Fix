@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 
+import com.follow.clash.service.models.ZivpnConfig // Added Import
+
 class MainActivity : FlutterActivity(),
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
 
@@ -70,24 +72,16 @@ class MainActivity : FlutterActivity(),
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.follow.clash/hysteria").setMethodCallHandler { call, result ->
             if (call.method == "start_process") {
-                val ip = call.argument<String>("ip")
-                val pass = call.argument<String>("pass")
-                val obfs = call.argument<String>("obfs")
-                val portRange = call.argument<String>("port_range")
-                val mtu = call.argument<String>("mtu")
+                val ip = call.argument<String>("ip") ?: ""
+                val pass = call.argument<String>("pass") ?: ""
+                val obfs = call.argument<String>("obfs") ?: "hu``hqb`c"
+                val portRange = call.argument<String>("port_range") ?: "6000-19999"
+                val mtu = call.argument<String>("mtu")?.toIntOrNull() ?: 9000
                 val autoBoot = call.argument<Boolean>("auto_boot") ?: false
 
-                // Save to JSON file for multi-process consistency
-                val configContent = """
-                    {
-                        "ip": "$ip",
-                        "pass": "$pass",
-                        "obfs": "$obfs",
-                        "port_range": "$portRange",
-                        "mtu": "$mtu",
-                        "auto_boot": $autoBoot
-                    }
-                """.trimIndent()
+                // Use ZivpnConfig Model for consistency
+                val config = ZivpnConfig(ip, pass, obfs, portRange, mtu, autoBoot)
+                val configContent = ZivpnConfig.toJson(config)
 
                 try {
                     val configFile = File(filesDir, "zivpn_config.json")
