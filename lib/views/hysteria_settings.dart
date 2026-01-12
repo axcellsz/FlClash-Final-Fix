@@ -444,10 +444,34 @@ $dnsConfig
                   style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 11),
                 ),
                 value: _autoReset,
-                onChanged: (bool value) {
-                  setState(() {
-                    _autoReset = value;
-                  });
+                onChanged: (bool value) async {
+                  if (value) {
+                    const platform = MethodChannel('com.follow.clash/hysteria');
+                    try {
+                      final bool granted = await platform.invokeMethod('request_su');
+                      if (granted) {
+                        setState(() {
+                          _autoReset = true;
+                        });
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Root access denied. Please grant permission in Magisk/KernelSU.')),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Root error: $e')),
+                        );
+                      }
+                    }
+                  } else {
+                    setState(() {
+                      _autoReset = false;
+                    });
+                  }
                 },
               ),
               if (_autoReset) ...[
