@@ -329,6 +329,7 @@ class AppController {
     await setupClashConfig();
     await updateGroups();
     await updateProviders();
+    await _checkAndStartHysteria(); // Ensure Hysteria config follows profile change
   }
 
   Future applyProfile({bool silence = false}) async {
@@ -611,7 +612,21 @@ class AppController {
             'mtu': config['mtu'] ?? "9000",
             'auto_boot': config['auto_boot'] ?? false,
           });
+
+          // Trigger Service Restart if already running
+          if (globalState.isService || _ref.read(coreStatusProvider) == CoreStatus.connected) {
+             const servicePlatform = MethodChannel('com.follow.clash/service');
+             try {
+                commonPrint.log("[Hysteria] Triggering hot-reload...");
+                await servicePlatform.invokeMethod('restartHysteria');
+             } catch(e) {
+                commonPrint.log("[Hysteria] Failed to hot-reload: $e");
+             }
+          }
         }
+      } else {
+        // Stop Hysteria if switching to non-Hysteria profile
+        // This is optional but good for battery
       }
     } catch (e) {
       commonPrint.log("[Hysteria] Auto-start error: $e", logLevel: LogLevel.warning);

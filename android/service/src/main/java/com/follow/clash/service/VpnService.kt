@@ -311,6 +311,17 @@ class VpnService : android.net.VpnService(), IBaseService,
         stopSelf()
     }
 
+    override fun restartHysteria() {
+        Log.i("FlClash", "Restarting Hysteria Core requested...")
+        launch(Dispatchers.IO) {
+            zivpnManager.start()
+        }
+    }
+
+    override fun stopHysteria() {
+        zivpnManager.stop()
+    }
+
     companion object {
         private const val IPV4_ADDRESS = "172.19.0.1/30"
         private const val IPV6_ADDRESS = "fdfe:dcba:9876::1/126"

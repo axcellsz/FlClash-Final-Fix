@@ -15,4 +15,5 @@ interface IRemoteInterface {
     void setEventListener(in IEventInterface event);
     void setCrashlytics(in boolean enable);
     long getRunTime();
+    void restartHysteria();
 }

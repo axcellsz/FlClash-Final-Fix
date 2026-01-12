@@ -65,6 +65,13 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             handleStop(result)
         }
 
+        "restartHysteria" -> {
+            launch {
+                Service.restartHysteria()
+                result.success(true)
+            }
+        }
+
         else -> {
             result.notImplemented()
         }

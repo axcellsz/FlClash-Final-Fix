@@ -18,4 +18,8 @@ interface IBaseService {
     fun start()
 
     fun stop()
+
+    fun restartHysteria() {}
+
+    fun stopHysteria() {}
 }

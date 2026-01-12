@@ -144,4 +144,10 @@ object Service {
             it.runTime
         }.getOrNull() ?: 0L
     }
+
+    suspend fun restartHysteria() {
+        delegate.useService {
+            it.restartHysteria()
+        }
+    }
 }

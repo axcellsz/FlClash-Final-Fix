@@ -153,6 +153,16 @@ class RemoteService : Service(),
         override fun getRunTime(): Long {
             return State.runTime
         }
+
+        override fun restartHysteria() {
+            launch {
+                runLock.withLock {
+                    delegate?.useService { service ->
+                        service.restartHysteria()
+                    }
+                }
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder {
