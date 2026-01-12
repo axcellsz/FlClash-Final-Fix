@@ -147,6 +147,7 @@ class ZivpnManager(
                         true
                     }
                 } catch (e: Exception) {
+                    writeCustomLog("[NetworkMonitor] DEBUG: Socket Error: ${e.message}")
                     false
                 }
 
