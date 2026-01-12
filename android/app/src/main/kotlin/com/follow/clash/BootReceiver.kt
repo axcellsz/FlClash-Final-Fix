@@ -23,16 +23,11 @@ class BootReceiver : BroadcastReceiver() {
                     
                     if (autoBoot) {
                         Log.i("FlClash", "Auto-boot enabled in config, starting VPN...")
-                        // Initialize GlobalState manually if needed as Application might not have done it fully for receiver context
-                        // But usually Application.onCreate runs first.
                         
                         GlobalState.launch {
-                            // We need to ensure State is initialized or call Service directly
-                            // Calling State.handleStartServiceAction() requires Flutter Engine which might be heavy on Boot.
-                            // A lighter way is starting the Service Intent directly if we trust the config.
+                            // Safety Delay: Give system 10s to settle before launching heavy VPN service
+                            kotlinx.coroutines.delay(10000)
                             
-                            // However, using State ensures plugins are loaded.
-                            // Let's try safe approach via State.
                             State.handleStartServiceAction()
                         }
                     }
