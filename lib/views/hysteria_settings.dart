@@ -170,6 +170,8 @@ proxy-groups:
 $keepAliveGroup
 
 rules:
+  - IP-CIDR, 127.0.0.0/8, DIRECT, no-resolve
+  - IP-CIDR, ::1/128, DIRECT, no-resolve
   - MATCH,PROXY
 
 $dnsConfig
@@ -201,6 +203,8 @@ proxy-groups:
 $keepAliveGroup
 
 rules:
+  - IP-CIDR, 127.0.0.0/8, DIRECT, no-resolve
+  - IP-CIDR, ::1/128, DIRECT, no-resolve
   - IP-CIDR, $host/32, DIRECT
   - MATCH, ZIVPN Turbo
 
