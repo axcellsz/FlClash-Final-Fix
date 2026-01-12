@@ -36,44 +36,46 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         flutterMethodChannel.setMethodCallHandler(null)
     }
 
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) = when (call.method) {
-        "init" -> {
-            handleInit(call, result)
-        }
-
-        "shutdown" -> {
-            handleShutdown(result)
-        }
-
-        "invokeAction" -> {
-            handleInvokeAction(call, result)
-        }
-
-        "getRunTime" -> {
-            handleGetRunTime(result)
-        }
-
-        "syncState" -> {
-            handleSyncState(call, result)
-        }
-
-        "start" -> {
-            handleStart(result)
-        }
-
-        "stop" -> {
-            handleStop(result)
-        }
-
-        "restartHysteria" -> {
-            launch {
-                Service.restartHysteria()
-                result.success(true)
+    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "init" -> {
+                handleInit(call, result)
             }
-        }
 
-        else -> {
-            result.notImplemented()
+            "shutdown" -> {
+                handleShutdown(result)
+            }
+
+            "invokeAction" -> {
+                handleInvokeAction(call, result)
+            }
+
+            "getRunTime" -> {
+                handleGetRunTime(result)
+            }
+
+            "syncState" -> {
+                handleSyncState(call, result)
+            }
+
+            "start" -> {
+                handleStart(result)
+            }
+
+            "stop" -> {
+                handleStop(result)
+            }
+
+            "restartHysteria" -> {
+                launch {
+                    Service.restartHysteria()
+                    result.success(true)
+                }
+            }
+
+            else -> {
+                result.notImplemented()
+            }
         }
     }
 
