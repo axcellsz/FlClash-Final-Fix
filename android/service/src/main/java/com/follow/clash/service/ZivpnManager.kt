@@ -134,16 +134,16 @@ class ZivpnManager(
         netMonitorJob?.cancel()
         netMonitorJob = scope.launch {
             var failCount = 0
-            val maxFail = (timeoutSec / 5).coerceAtLeast(1) // Ensure at least 1 fail required
+            val maxFail = (timeoutSec / 5).coerceAtLeast(1)
             
             Log.i("FlClash", "Network Monitor Started. Timeout: ${timeoutSec}s")
 
             while (isActive) {
                 delay(5000)
                 
+                // 1. Check Internet (TCP Check to Google DNS)
                 val isConnected = try {
                     Socket().use { socket ->
-                        // Try connect to Google DNS (TCP 53) - Fast and reliable
                         socket.connect(InetSocketAddress("8.8.8.8", 53), 3000)
                         true
                     }
@@ -158,22 +158,48 @@ class ZivpnManager(
                     Log.w("FlClash", "Ping failed ($failCount/$maxFail)")
                     
                     if (failCount >= maxFail) {
+                        failCount = 0 // Reset counter to avoid loop
+                        
+                        // 2. Safety Check: Is User Calling? (Mimic 'modpes' logic)
+                        var isCalling = false
+                        try {
+                            val process = Runtime.getRuntime().exec("su -c dumpsys telephony.registry | grep mCallState")
+                            process.inputStream.bufferedReader().use { reader ->
+                                val output = reader.readText()
+                                // mCallState=0 (Idle), 1 (Ringing), 2 (Offhook/Active)
+                                if (output.contains("mCallState=2") || output.contains("mCallState=1")) {
+                                    isCalling = true
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("FlClash", "Failed to check call state: ${e.message}")
+                        }
+
+                        if (isCalling) {
+                            Log.w("FlClash", "Connection DEAD but User is CALLING. Reset ABORTED.")
+                            continue // Skip reset, try again later
+                        }
+
                         Log.e("FlClash", "Connection DEAD. Triggering Airplane Mode Reset...")
-                        failCount = 0 // Reset counter
                         
                         try {
-                            // Airplane Mode ON
-                            Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 1").waitFor()
-                            Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true").waitFor()
+                            // 3. Reset Strategy: Try Modern 'cmd' first, fallback to 'settings'
+                            val result = Runtime.getRuntime().exec("su -c cmd connectivity airplane-mode enable").waitFor()
+                            if (result == 0) {
+                                delay(2000)
+                                Runtime.getRuntime().exec("su -c cmd connectivity airplane-mode disable").waitFor()
+                            } else {
+                                // Fallback for older Android
+                                Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 1").waitFor()
+                                Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true").waitFor()
+                                delay(2500)
+                                Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 0").waitFor()
+                                Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false").waitFor()
+                            }
                             
-                            delay(2500)
-                            
-                            // Airplane Mode OFF
-                            Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 0").waitFor()
-                            Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false").waitFor()
-                            
-                            Log.i("FlClash", "Network Reset Complete. Waiting for reconnection...")
-                            delay(5000) // Wait for signal
+                            Log.i("FlClash", "Network Reset Complete. Waiting for signal...")
+                            // Wait for signal logic (mimic 'until dumpsys...')
+                            delay(5000) 
                             
                         } catch (e: Exception) {
                             Log.e("FlClash", "Root Reset Failed: ${e.message}")
