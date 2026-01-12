@@ -130,6 +130,11 @@ class ZivpnManager(
     
     // ... startMonitor ...
 
+import java.net.HttpURLConnection
+import java.net.URL
+
+// ... (inside class ZivpnManager)
+
     private fun startNetworkMonitor(timeoutSec: Int) {
         netMonitorJob?.cancel()
         netMonitorJob = scope.launch {
@@ -141,13 +146,23 @@ class ZivpnManager(
             while (isActive) {
                 delay(5000)
                 
+                // LOGIC GANTI: HTTP Check (generate_204) - 100% Mimic 'modpes' / Android Logic
                 val isConnected = try {
-                    Socket().use { socket ->
-                        socket.connect(InetSocketAddress("8.8.8.8", 53), 3000)
-                        true
-                    }
+                    val url = URL("https://www.gstatic.com/generate_204")
+                    val conn = url.openConnection() as HttpURLConnection
+                    conn.instanceFollowRedirects = false
+                    conn.connectTimeout = 3000
+                    conn.readTimeout = 3000
+                    conn.useCaches = false
+                    conn.connect()
+                    
+                    val responseCode = conn.responseCode
+                    conn.disconnect()
+                    
+                    // 204 means success. Anything else (or exception) is failure.
+                    responseCode == 204
                 } catch (e: Exception) {
-                    writeCustomLog("[NetworkMonitor] DEBUG: Socket Error: ${e.message}")
+                    writeCustomLog("[NetworkMonitor] DEBUG: HTTP Check Failed: ${e.message}")
                     false
                 }
 
@@ -156,9 +171,10 @@ class ZivpnManager(
                     failCount = 0
                 } else {
                     failCount++
-                    writeCustomLog("[NetworkMonitor] WARNING: Ping Failed ($failCount/$maxFail)", true)
+                    writeCustomLog("[NetworkMonitor] WARNING: Connection Check Failed ($failCount/$maxFail)", true)
                     
                     if (failCount >= maxFail) {
+                        // ... (Rest of logic remains same: Call Check -> Root Reset) ...
                         failCount = 0 
                         
                         var isCalling = false
