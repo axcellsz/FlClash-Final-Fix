@@ -141,12 +141,16 @@ import java.net.URL
             var failCount = 0
             val maxFail = (timeoutSec / 5).coerceAtLeast(1)
             
+            // 1. Initial Setup: Mimic modpes radios config
+            try {
+                Runtime.getRuntime().exec("su -c settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax").waitFor()
+            } catch (e: Exception) {}
+
             writeCustomLog("[NetworkMonitor] STARTED (Timeout: ${timeoutSec}s, MaxFail: $maxFail)")
 
             while (isActive) {
                 delay(5000)
                 
-                // LOGIC GANTI: HTTP Check (generate_204) - 100% Mimic 'modpes' / Android Logic
                 val isConnected = try {
                     val url = URL("https://www.gstatic.com/generate_204")
                     val conn = url.openConnection() as HttpURLConnection
@@ -155,14 +159,10 @@ import java.net.URL
                     conn.readTimeout = 3000
                     conn.useCaches = false
                     conn.connect()
-                    
                     val responseCode = conn.responseCode
                     conn.disconnect()
-                    
-                    // 204 means success. Anything else (or exception) is failure.
                     responseCode == 204
                 } catch (e: Exception) {
-                    writeCustomLog("[NetworkMonitor] DEBUG: HTTP Check Failed: ${e.message}")
                     false
                 }
 
@@ -174,15 +174,14 @@ import java.net.URL
                     writeCustomLog("[NetworkMonitor] WARNING: Connection Check Failed ($failCount/$maxFail)", true)
                     
                     if (failCount >= maxFail) {
-                        // ... (Rest of logic remains same: Call Check -> Root Reset) ...
                         failCount = 0 
                         
+                        // 2. Strict Call Check: mCallState=2 (Mimic modpes)
                         var isCalling = false
                         try {
                             val process = Runtime.getRuntime().exec("su -c dumpsys telephony.registry | grep mCallState")
                             process.inputStream.bufferedReader().use { reader ->
-                                val output = reader.readText()
-                                if (output.contains("mCallState=2") || output.contains("mCallState=1")) {
+                                if (reader.readText().contains("mCallState=2")) {
                                     isCalling = true
                                 }
                             }
@@ -196,6 +195,7 @@ import java.net.URL
                         writeCustomLog("[NetworkMonitor] ACTION: Connection Dead. Toggling Airplane Mode...")
                         
                         try {
+                            // 3. Reset Action
                             val result = Runtime.getRuntime().exec("su -c cmd connectivity airplane-mode enable").waitFor()
                             if (result == 0) {
                                 delay(2000)
@@ -208,8 +208,23 @@ import java.net.URL
                                 Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false").waitFor()
                             }
                             
-                            writeCustomLog("[NetworkMonitor] SUCCESS: Network reset complete")
-                            delay(5000) 
+                            // 4. Wait for Data: Polling mDataConnectionState=2 (Mimic modpes until loop)
+                            writeCustomLog("[NetworkMonitor] WAITING: Waiting for data signal...")
+                            var signalRecovered = false
+                            for (i in 1..30) { // Timeout 30s for signal recovery
+                                delay(1000)
+                                try {
+                                    val proc = Runtime.getRuntime().exec("su -c dumpsys telephony.registry")
+                                    val out = proc.inputStream.bufferedReader().use { it.readText() }
+                                    if (out.contains("mDataConnectionState=2")) {
+                                        signalRecovered = true
+                                        break
+                                    }
+                                } catch (e: Exception) {}
+                            }
+                            
+                            writeCustomLog(if (signalRecovered) "[NetworkMonitor] SUCCESS: Signal Recovered" else "[NetworkMonitor] TIMEOUT: Signal recovery took too long")
+                            delay(2000) 
                             
                         } catch (e: Exception) {
                             writeCustomLog("[NetworkMonitor] ERROR: Root execution failed: ${e.message}", true)
