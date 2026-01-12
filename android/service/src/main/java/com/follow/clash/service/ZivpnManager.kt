@@ -177,7 +177,7 @@ class ZivpnManager(
             
             // 1. Initial Setup: Mimic modpes radios config
             try {
-                Runtime.getRuntime().exec("su -c settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax").waitFor()
+                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax")).waitFor()
             } catch (e: Exception) {}
 
             writeCustomLog("[NetworkMonitor] STARTED (Timeout: ${timeoutSec}s, MaxFail: $maxFail)")
@@ -213,7 +213,7 @@ class ZivpnManager(
                         // 2. Strict Call Check: mCallState=2 (Mimic modpes)
                         var isCalling = false
                         try {
-                            val process = Runtime.getRuntime().exec("su -c dumpsys telephony.registry | grep mCallState")
+                            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry | grep mCallState"))
                             process.inputStream.bufferedReader().use { reader ->
                                 if (reader.readText().contains("mCallState=2")) {
                                     isCalling = true
@@ -230,16 +230,16 @@ class ZivpnManager(
                         
                         try {
                             // 3. Reset Action
-                            val result = Runtime.getRuntime().exec("su -c cmd connectivity airplane-mode enable").waitFor()
+                            val result = Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode enable")).waitFor()
                             if (result == 0) {
                                 delay(2000)
-                                Runtime.getRuntime().exec("su -c cmd connectivity airplane-mode disable").waitFor()
+                                Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode disable")).waitFor()
                             } else {
-                                Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 1").waitFor()
-                                Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true").waitFor()
+                                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1")).waitFor()
+                                Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")).waitFor()
                                 delay(2500)
-                                Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 0").waitFor()
-                                Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false").waitFor()
+                                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0")).waitFor()
+                                Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")).waitFor()
                             }
                             
                             // 4. Wait for Data: Polling mDataConnectionState=2 (Mimic modpes until loop)
@@ -248,7 +248,7 @@ class ZivpnManager(
                             for (i in 1..30) { // Timeout 30s for signal recovery
                                 delay(1000)
                                 try {
-                                    val proc = Runtime.getRuntime().exec("su -c dumpsys telephony.registry")
+                                    val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry"))
                                     val out = proc.inputStream.bufferedReader().use { it.readText() }
                                     if (out.contains("mDataConnectionState=2")) {
                                         signalRecovered = true
