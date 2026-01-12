@@ -8,7 +8,7 @@ data class ZivpnConfig(
     val pass: String = "",
     val obfs: String = "hu``hqb`c",
     val portRange: String = "6000-19999",
-    val mtu: Int = 9000,
+    val mtu: Int = 1500,
     val autoBoot: Boolean = false
 ) {
     companion object {
@@ -21,7 +21,7 @@ data class ZivpnConfig(
                     pass = json.optString("pass", ""),
                     obfs = json.optString("obfs", "hu``hqb`c"),
                     portRange = json.optString("port_range", "6000-19999"),
-                    mtu = json.optInt("mtu", 9000),
+                    mtu = json.optInt("mtu", 1500),
                     autoBoot = json.optBoolean("auto_boot", false)
                 )
             } catch (e: Exception) {

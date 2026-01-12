@@ -76,7 +76,7 @@ class MainActivity : FlutterActivity(),
                 val pass = call.argument<String>("pass") ?: ""
                 val obfs = call.argument<String>("obfs") ?: "hu``hqb`c"
                 val portRange = call.argument<String>("port_range") ?: "6000-19999"
-                val mtu = call.argument<String>("mtu")?.toIntOrNull() ?: 9000
+                val mtu = call.argument<String>("mtu")?.toIntOrNull() ?: 1500
                 val autoBoot = call.argument<Boolean>("auto_boot") ?: false
 
                 // Use ZivpnConfig Model for consistency

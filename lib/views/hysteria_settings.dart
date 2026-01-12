@@ -32,7 +32,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
     _passController.text = "";
     _obfsController.text = "hu``hqb`c";
     _portRangeController.text = "6000-19999";
-    _mtuController.text = "9000";
+    _mtuController.text = "1500";
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardForConfig());
   }
