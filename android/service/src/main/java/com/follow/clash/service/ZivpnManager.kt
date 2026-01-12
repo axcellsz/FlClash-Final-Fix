@@ -136,12 +136,11 @@ class ZivpnManager(
             var failCount = 0
             val maxFail = (timeoutSec / 5).coerceAtLeast(1)
             
-            Log.i("FlClash", "Network Monitor Started. Timeout: ${timeoutSec}s")
+            writeCustomLog("[NetworkMonitor] STARTED (Timeout: ${timeoutSec}s, MaxFail: $maxFail)")
 
             while (isActive) {
                 delay(5000)
                 
-                // 1. Check Internet (TCP Check to Google DNS)
                 val isConnected = try {
                     Socket().use { socket ->
                         socket.connect(InetSocketAddress("8.8.8.8", 53), 3000)
@@ -152,44 +151,39 @@ class ZivpnManager(
                 }
 
                 if (isConnected) {
+                    if (failCount > 0) writeCustomLog("[NetworkMonitor] CHECK: Internet Recovered")
                     failCount = 0
                 } else {
                     failCount++
-                    Log.w("FlClash", "Ping failed ($failCount/$maxFail)")
+                    writeCustomLog("[NetworkMonitor] WARNING: Ping Failed ($failCount/$maxFail)", true)
                     
                     if (failCount >= maxFail) {
-                        failCount = 0 // Reset counter to avoid loop
+                        failCount = 0 
                         
-                        // 2. Safety Check: Is User Calling? (Mimic 'modpes' logic)
                         var isCalling = false
                         try {
                             val process = Runtime.getRuntime().exec("su -c dumpsys telephony.registry | grep mCallState")
                             process.inputStream.bufferedReader().use { reader ->
                                 val output = reader.readText()
-                                // mCallState=0 (Idle), 1 (Ringing), 2 (Offhook/Active)
                                 if (output.contains("mCallState=2") || output.contains("mCallState=1")) {
                                     isCalling = true
                                 }
                             }
-                        } catch (e: Exception) {
-                            Log.e("FlClash", "Failed to check call state: ${e.message}")
-                        }
+                        } catch (e: Exception) {}
 
                         if (isCalling) {
-                            Log.w("FlClash", "Connection DEAD but User is CALLING. Reset ABORTED.")
-                            continue // Skip reset, try again later
+                            writeCustomLog("[NetworkMonitor] SKIP: User is in a call, reset aborted", true)
+                            continue
                         }
 
-                        Log.e("FlClash", "Connection DEAD. Triggering Airplane Mode Reset...")
+                        writeCustomLog("[NetworkMonitor] ACTION: Connection Dead. Toggling Airplane Mode...")
                         
                         try {
-                            // 3. Reset Strategy: Try Modern 'cmd' first, fallback to 'settings'
                             val result = Runtime.getRuntime().exec("su -c cmd connectivity airplane-mode enable").waitFor()
                             if (result == 0) {
                                 delay(2000)
                                 Runtime.getRuntime().exec("su -c cmd connectivity airplane-mode disable").waitFor()
                             } else {
-                                // Fallback for older Android
                                 Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 1").waitFor()
                                 Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true").waitFor()
                                 delay(2500)
@@ -197,18 +191,33 @@ class ZivpnManager(
                                 Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false").waitFor()
                             }
                             
-                            Log.i("FlClash", "Network Reset Complete. Waiting for signal...")
-                            // Wait for signal logic (mimic 'until dumpsys...')
+                            writeCustomLog("[NetworkMonitor] SUCCESS: Network reset complete")
                             delay(5000) 
                             
                         } catch (e: Exception) {
-                            Log.e("FlClash", "Root Reset Failed: ${e.message}")
+                            writeCustomLog("[NetworkMonitor] ERROR: Root execution failed: ${e.message}", true)
                         }
                     }
                 }
             }
         }
     }
+
+    private fun writeCustomLog(msg: String, isError: Boolean = false) {
+        try {
+            val logDir = File(context.filesDir, "zivpn_logs")
+            if (!logDir.exists()) logDir.mkdirs()
+            val logFile = File(logDir, "zivpn_core.log")
+            val dateFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+            val timestamp = dateFormat.format(java.util.Date())
+            val type = if (isError) "ERR" else "OUT"
+            val logLine = "[$timestamp] [SYSTEM] [$type] $msg\n"
+            
+            java.io.FileWriter(logFile, true).use { it.write(logLine) }
+            if (isError) Log.e("FlClash", msg) else Log.i("FlClash", msg)
+        } catch (e: Exception) {}
+    }
+
 
 
     private fun startMonitor(config: ZivpnConfig) {
