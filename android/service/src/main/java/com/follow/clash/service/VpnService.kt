@@ -74,6 +74,10 @@ class VpnService : android.net.VpnService(), IBaseService,
         handleCreate()
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
     override fun onDestroy() {
         releaseLocks()
         zivpnManager.stop()
