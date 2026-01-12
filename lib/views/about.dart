@@ -8,6 +8,8 @@ import 'package:fl_clash/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter_svg/flutter_svg.dart';
+
 @immutable
 class Contributor {
   final String avatar;
@@ -120,8 +122,8 @@ class AboutView extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(12),
-                        child: Image.asset(
-                          'assets/images/icon.png',
+                        child: SvgPicture.asset(
+                          'assets/images/icon_new.svg',
                           width: 64,
                           height: 64,
                         ),

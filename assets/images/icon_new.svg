@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="aero_gradient" x1="100" y1="100" x2="900" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF8C00" /> <!-- Dark Orange -->
+      <stop offset="100%" stop-color="#FF2400" /> <!-- Scarlet Red -->
+    </linearGradient>
+    <filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="20" />
+      <feOffset dx="10" dy="20" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Circle for Adaptive Icon -->
+  <circle cx="512" cy="512" r="512" fill="white" />
+
+  <!-- Main Aero Shape: Abstract Wing/Turbine -->
+  <path d="M 250 750 
+           C 200 750, 150 700, 180 650 
+           Q 300 400, 500 200 
+           C 650 50, 850 50, 900 100 
+           C 950 150, 900 350, 750 500 
+           Q 550 700, 300 780
+           C 280 790, 260 760, 250 750 Z" 
+        fill="url(#aero_gradient)" 
+        filter="url(#dropShadow)" />
+        
+  <!-- Speed Line / Accent for 'Turbo' feel -->
+  <path d="M 350 680 
+           Q 500 600, 700 450" 
+        stroke="white" 
+        stroke-width="30" 
+        stroke-linecap="round" 
+        stroke-opacity="0.4" />
+</svg>
