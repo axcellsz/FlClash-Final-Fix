@@ -24,6 +24,8 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
   final TextEditingController _mtuController = TextEditingController();
   bool _enableKeepAlive = true;
   bool _autoBoot = false;
+  bool _autoReset = false;
+  double _resetTimeout = 15.0;
   
   @override
   void initState() {
@@ -36,6 +38,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardForConfig());
   }
+
 
   Future<void> _checkClipboardForConfig() async {
     try {
@@ -96,7 +99,9 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
       "obfs": obfs,
       "port_range": portRange,
       "mtu": mtu,
-      "auto_boot": _autoBoot
+      "auto_boot": _autoBoot,
+      "auto_reset": _autoReset,
+      "reset_timeout": _resetTimeout.toInt()
     };
     final metadataString = jsonEncode(metadata);
 
@@ -338,6 +343,14 @@ $dnsConfig
 
         // MTU
         _mtuController.text = jsonMap['mtu'].toString();
+        
+        // Auto Reset
+        if (jsonMap.containsKey('auto_reset')) {
+             _autoReset = jsonMap['auto_reset'] == true;
+        }
+        if (jsonMap.containsKey('reset_timeout')) {
+             _resetTimeout = double.tryParse(jsonMap['reset_timeout'].toString()) ?? 15.0;
+        }
       });
 
       if (mounted) {
@@ -417,6 +430,59 @@ $dnsConfig
                   });
                 },
               ),
+              const Divider(),
+              SwitchListTile(
+                title: const Row(
+                  children: [
+                    Icon(Icons.bolt, color: Colors.amber),
+                    SizedBox(width: 8),
+                    Text('Auto-Reset Network'),
+                  ],
+                ),
+                subtitle: const Text(
+                  'REQUIRES ROOT. Automatically toggles Airplane Mode if internet dies (Fixes UDP Jammed).',
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+                value: _autoReset,
+                onChanged: (bool value) {
+                  setState(() {
+                    _autoReset = value;
+                  });
+                },
+              ),
+              if (_autoReset) ...[
+                 Padding(
+                   padding: const EdgeInsets.symmetric(horizontal: 16),
+                   child: Row(
+                     children: [
+                       const Text("Timeout:"),
+                       Expanded(
+                         child: Slider(
+                           value: _resetTimeout,
+                           min: 5,
+                           max: 60,
+                           divisions: 11,
+                           label: "${_resetTimeout.toInt()}s",
+                           onChanged: (double value) {
+                             setState(() {
+                               _resetTimeout = value;
+                             });
+                           },
+                         ),
+                       ),
+                       Text("${_resetTimeout.toInt()}s"),
+                     ],
+                   ),
+                 ),
+                 const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                        "If connection is dead for this long, airplane mode will be toggled automatically.",
+                        style: TextStyle(fontSize: 12, color: Colors.grey)
+                    ),
+                 ),
+              ],
+              const Divider(),
               SwitchListTile(
                 title: const Text('Enable Keep-Alive Mode'),
                 subtitle: const Text('Prevents NAT timeout (NAT Hole). Disable if unstable.'),

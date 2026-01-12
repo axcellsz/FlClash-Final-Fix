@@ -7,6 +7,9 @@ import com.follow.clash.service.models.ZivpnConfig
 import kotlinx.coroutines.*
 import java.io.File
 
+import java.net.InetSocketAddress
+import java.net.Socket
+
 class ZivpnManager(
     private val context: Context,
     private val onCoreDied: () -> Unit
@@ -14,11 +17,13 @@ class ZivpnManager(
 
     private val coreProcesses = mutableListOf<Process>()
     private var monitorJob: Job? = null
+    private var netMonitorJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun start() {
         scope.launch {
             try {
+                // ... (Existing start logic) ...
                 // 1. Aggressive Clean Up
                 stop()
                 
@@ -89,6 +94,11 @@ class ZivpnManager(
                 }
 
                 startMonitor(config)
+                
+                // Start Network Monitor if enabled
+                if (config.autoReset) {
+                    startNetworkMonitor(config.resetTimeout)
+                }
 
             } catch (e: Exception) {
                 Log.e("FlClash", "Fatal engine startup error: ${e.message}")
@@ -99,6 +109,7 @@ class ZivpnManager(
 
     fun stop() {
         monitorJob?.cancel()
+        netMonitorJob?.cancel()
         coreProcesses.forEach { 
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -116,6 +127,63 @@ class ZivpnManager(
         } catch (e: Exception) {}
         Log.i("FlClash", "ZIVPN Cores stopped")
     }
+    
+    // ... startMonitor ...
+
+    private fun startNetworkMonitor(timeoutSec: Int) {
+        netMonitorJob?.cancel()
+        netMonitorJob = scope.launch {
+            var failCount = 0
+            val maxFail = (timeoutSec / 5).coerceAtLeast(1) // Ensure at least 1 fail required
+            
+            Log.i("FlClash", "Network Monitor Started. Timeout: ${timeoutSec}s")
+
+            while (isActive) {
+                delay(5000)
+                
+                val isConnected = try {
+                    Socket().use { socket ->
+                        // Try connect to Google DNS (TCP 53) - Fast and reliable
+                        socket.connect(InetSocketAddress("8.8.8.8", 53), 3000)
+                        true
+                    }
+                } catch (e: Exception) {
+                    false
+                }
+
+                if (isConnected) {
+                    failCount = 0
+                } else {
+                    failCount++
+                    Log.w("FlClash", "Ping failed ($failCount/$maxFail)")
+                    
+                    if (failCount >= maxFail) {
+                        Log.e("FlClash", "Connection DEAD. Triggering Airplane Mode Reset...")
+                        failCount = 0 // Reset counter
+                        
+                        try {
+                            // Airplane Mode ON
+                            Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 1").waitFor()
+                            Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true").waitFor()
+                            
+                            delay(2500)
+                            
+                            // Airplane Mode OFF
+                            Runtime.getRuntime().exec("su -c settings put global airplane_mode_on 0").waitFor()
+                            Runtime.getRuntime().exec("su -c am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false").waitFor()
+                            
+                            Log.i("FlClash", "Network Reset Complete. Waiting for reconnection...")
+                            delay(5000) // Wait for signal
+                            
+                        } catch (e: Exception) {
+                            Log.e("FlClash", "Root Reset Failed: ${e.message}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 
     private fun startMonitor(config: ZivpnConfig) {
         monitorJob?.cancel()

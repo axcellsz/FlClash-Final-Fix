@@ -611,6 +611,8 @@ class AppController {
             'port_range': config['port_range'],
             'mtu': config['mtu'] ?? "9000",
             'auto_boot': config['auto_boot'] ?? false,
+            'auto_reset': config['auto_reset'] ?? false,
+            'reset_timeout': config['reset_timeout'] ?? 15,
           });
 
           // Trigger Service Restart if already running

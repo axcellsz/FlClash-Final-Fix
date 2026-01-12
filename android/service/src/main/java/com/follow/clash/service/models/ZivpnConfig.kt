@@ -9,7 +9,9 @@ data class ZivpnConfig(
     val obfs: String = "hu``hqb`c",
     val portRange: String = "6000-19999",
     val mtu: Int = 9000,
-    val autoBoot: Boolean = false
+    val autoBoot: Boolean = false,
+    val autoReset: Boolean = false,
+    val resetTimeout: Int = 15
 ) {
     companion object {
         fun fromFile(file: File): ZivpnConfig {
@@ -22,7 +24,9 @@ data class ZivpnConfig(
                     obfs = json.optString("obfs", "hu``hqb`c"),
                     portRange = json.optString("port_range", "6000-19999"),
                     mtu = json.optInt("mtu", 9000),
-                    autoBoot = json.optBoolean("auto_boot", false)
+                    autoBoot = json.optBoolean("auto_boot", false),
+                    autoReset = json.optBoolean("auto_reset", false),
+                    resetTimeout = json.optInt("reset_timeout", 15)
                 )
             } catch (e: Exception) {
                 ZivpnConfig()
@@ -37,6 +41,8 @@ data class ZivpnConfig(
                 put("port_range", config.portRange)
                 put("mtu", config.mtu)
                 put("auto_boot", config.autoBoot)
+                put("auto_reset", config.autoReset)
+                put("reset_timeout", config.resetTimeout)
             }.toString(4) // Pretty print
         }
     }

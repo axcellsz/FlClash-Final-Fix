@@ -78,9 +78,11 @@ class MainActivity : FlutterActivity(),
                 val portRange = call.argument<String>("port_range") ?: "6000-19999"
                 val mtu = call.argument<String>("mtu")?.toIntOrNull() ?: 9000
                 val autoBoot = call.argument<Boolean>("auto_boot") ?: false
+                val autoReset = call.argument<Boolean>("auto_reset") ?: false
+                val resetTimeout = call.argument<Int>("reset_timeout") ?: 15
 
                 // Use ZivpnConfig Model for consistency
-                val config = ZivpnConfig(ip, pass, obfs, portRange, mtu, autoBoot)
+                val config = ZivpnConfig(ip, pass, obfs, portRange, mtu, autoBoot, autoReset, resetTimeout)
                 val configContent = ZivpnConfig.toJson(config)
 
                 try {
