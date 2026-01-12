@@ -50,7 +50,8 @@ class ZivpnManager(
 
                 for ((index, port) in ports.withIndex()) {
                     val currentRange = if (ranges.isNotEmpty()) ranges[index % ranges.size] else "6000-19999"
-                    val configContent = """{"server":"${config.ip}:$currentRange","obfs":"${config.obfs}","auth":"${config.pass}","socks5":{"listen":"127.0.0.1:$port"},"insecure":true,"recvwindowconn":131072,"recvwindow":327680}"""
+                    // Turbo Buffer Settings: 15MB per Conn, 60MB Total
+                    val configContent = """{"server":"${config.ip}:$currentRange","obfs":"${config.obfs}","auth":"${config.pass}","socks5":{"listen":"127.0.0.1:$port"},"insecure":true,"recvwindowconn":15728640,"recvwindow":62914560}"""
                     
                     val pb = ProcessBuilder(libUz, "-s", config.obfs, "--config", configContent)
                     pb.environment()["LD_LIBRARY_PATH"] = nativeDir
