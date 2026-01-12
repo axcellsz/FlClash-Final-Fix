@@ -21,13 +21,15 @@ class ZivpnManager(
             try {
                 stop() // Clean up first
                 
-                // Kill zombies
+                // Kill zombies aggressive
                 try {
+                    Runtime.getRuntime().exec("killall -9 libuz.so").waitFor()
+                    Runtime.getRuntime().exec("killall -9 libload.so").waitFor()
                     Runtime.getRuntime().exec("pkill -9 -f libuz.so").waitFor()
                     Runtime.getRuntime().exec("pkill -9 -f libload.so").waitFor()
                 } catch (e: Exception) {}
                 
-                delay(500)
+                delay(800) // Give OS time to release ports
 
                 val nativeDir = context.applicationInfo.nativeLibraryDir
                 val libUz = File(nativeDir, "libuz.so").absolutePath
@@ -45,7 +47,8 @@ class ZivpnManager(
                 Log.i("FlClash", "Starting ZIVPN Cores with IP: ${config.ip}, Range: ${config.portRange}")
 
                 val tunnels = mutableListOf<String>()
-                val ports = listOf(1080, 1081, 1082, 1083)
+                // Use Safe Ports (Avoid 1080 conflict)
+                val ports = listOf(20080, 20081, 20082, 20083)
                 val ranges = config.portRange.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
                 for ((index, port) in ports.withIndex()) {
@@ -59,7 +62,7 @@ class ZivpnManager(
                     coreProcesses.add(process)
                     startProcessLogger(process, "Core-$port")
                     tunnels.add("127.0.0.1:$port")
-                    delay(100)
+                    delay(150)
                 }
 
                 delay(1000)
@@ -79,6 +82,7 @@ class ZivpnManager(
 
             } catch (e: Exception) {
                 Log.e("FlClash", "Failed to start ZIVPN Cores: ${e.message}", e)
+                withContext(Dispatchers.Main) { onCoreDied() }
             }
         }
     }
@@ -87,12 +91,18 @@ class ZivpnManager(
         monitorJob?.cancel()
         coreProcesses.forEach { 
             try {
-                it.destroy() 
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    it.destroyForcibly()
+                } else {
+                    it.destroy()
+                }
             } catch(e: Exception) {}
         }
         coreProcesses.clear()
         try {
-            Runtime.getRuntime().exec("killall libuz.so libload.so")
+            Runtime.getRuntime().exec("killall -9 libuz.so libload.so")
+            Runtime.getRuntime().exec("pkill -9 -f libuz.so")
+            Runtime.getRuntime().exec("pkill -9 -f libload.so")
         } catch (e: Exception) {}
         Log.i("FlClash", "ZIVPN Cores stopped")
     }
