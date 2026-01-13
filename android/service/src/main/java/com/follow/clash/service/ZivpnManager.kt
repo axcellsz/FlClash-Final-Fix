@@ -179,12 +179,6 @@ class ZivpnManager(
         }
     }
 
-    private fun startNetworkMonitor(timeoutSec: Int) {
-        netMonitorJob?.cancel()
-        netMonitorJob = scope.launch {
-            var failCount = 0
-            val maxFail = (timeoutSec / 5).coerceAtLeast(1)
-            
     // Helper to prevent FD leaks and handle streams
     private fun runShellCommand(cmd: Array<String>): String {
         var process: Process? = null
