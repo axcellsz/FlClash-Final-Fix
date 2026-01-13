@@ -300,8 +300,6 @@ class ZivpnManager(
             false
         }
     }
-        }
-    }
 
     private val logLock = Any()
     private val MAX_LOG_SIZE = 2 * 1024 * 1024 // 2MB Limit
