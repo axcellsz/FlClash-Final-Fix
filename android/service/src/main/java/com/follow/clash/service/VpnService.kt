@@ -80,7 +80,7 @@ class VpnService : android.net.VpnService(), IBaseService,
 
     override fun onDestroy() {
         releaseLocks()
-        zivpnManager.stop()
+        zivpnManager.destroy() // Use destroy() to cancel pending restart jobs
         handleDestroy()
         super.onDestroy()
     }

@@ -110,6 +110,17 @@ class ZivpnManager(
     fun stop() {
         monitorJob?.cancel()
         netMonitorJob?.cancel()
+        killCoreProcesses()
+        Log.i("FlClash", "Zivpn Cores stopped")
+    }
+
+    // Call this only when VpnService is destroyed explicitly
+    fun destroy() {
+        scope.cancel() // Cancel all pending jobs (including soft restarts)
+        stop()
+    }
+
+    private fun killCoreProcesses() {
         coreProcesses.forEach { 
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -125,7 +136,6 @@ class ZivpnManager(
             Runtime.getRuntime().exec("pkill -9 -f libuz.so")
             Runtime.getRuntime().exec("pkill -9 -f libload.so")
         } catch (e: Exception) {}
-        Log.i("FlClash", "ZIVPN Cores stopped")
     }
 
     private fun startMonitor(config: ZivpnConfig) {
@@ -175,12 +185,34 @@ class ZivpnManager(
             var failCount = 0
             val maxFail = (timeoutSec / 5).coerceAtLeast(1)
             
+    // Helper to prevent FD leaks and handle streams
+    private fun runShellCommand(cmd: Array<String>): String {
+        var process: Process? = null
+        return try {
+            process = Runtime.getRuntime().exec(cmd)
+            // Read output to prevent buffer blocking
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            process.errorStream.close() // Close stderr explicitly
+            process.outputStream.close() // Close stdin explicitly
+            process.waitFor()
+            output
+        } catch (e: Exception) {
+            ""
+        } finally {
+            process?.destroy()
+        }
+    }
+
+    private fun startNetworkMonitor(timeoutSec: Int) {
+        netMonitorJob?.cancel()
+        netMonitorJob = scope.launch {
+            var failCount = 0
+            val maxFail = (timeoutSec / 5).coerceAtLeast(1)
+            
             // 1. Initial Setup: Mimic modpes radios config (Only if Root)
             val hasRoot = isRootAvailable()
             if (hasRoot) {
-                try {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax")).waitFor()
-                } catch (e: Exception) {}
+                runShellCommand(arrayOf("su", "-c", "settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax"))
             }
 
             writeCustomLog("[NetworkMonitor] STARTED (Timeout: ${timeoutSec}s, MaxFail: $maxFail, Mode: ${if (hasRoot) "ROOT (Airplane)" else "NON-ROOT (Restart)"})")
@@ -215,18 +247,9 @@ class ZivpnManager(
                         
                         if (hasRoot) {
                             // --- ROOT MODE: AIRPLANE TOGGLE ---
-                            // 2. Strict Call Check: mCallState=2
-                            var isCalling = false
-                            try {
-                                val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry | grep mCallState"))
-                                process.inputStream.bufferedReader().use { reader ->
-                                    if (reader.readText().contains("mCallState=2")) {
-                                        isCalling = true
-                                    }
-                                }
-                            } catch (e: Exception) {}
-
-                            if (isCalling) {
+                            // 2. Strict Call Check
+                            val callCheckOut = runShellCommand(arrayOf("su", "-c", "dumpsys telephony.registry | grep mCallState"))
+                            if (callCheckOut.contains("mCallState=2")) {
                                 writeCustomLog("[NetworkMonitor] SKIP: User is in a call, reset aborted", true)
                                 continue
                             }
@@ -235,38 +258,29 @@ class ZivpnManager(
                             
                             try {
                                 // 3. Reset Action
-                                val result = Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode enable")).waitFor()
-                                if (result == 0) {
-                                    delay(2000)
-                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode disable")).waitFor()
-                                } else {
-                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1")).waitFor()
-                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")).waitFor()
-                                    delay(2500)
-                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0")).waitFor()
-                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")).waitFor()
-                                }
+                                runShellCommand(arrayOf("su", "-c", "cmd connectivity airplane-mode enable"))
+                                delay(2000)
+                                runShellCommand(arrayOf("su", "-c", "cmd connectivity airplane-mode disable"))
+                                
+                                // Fallback is rarely needed with 'cmd', but kept simple here. 
+                                // If 'cmd' fails, the loop continues and retry next time.
                                 
                                 // 4. Wait for Data
                                 writeCustomLog("[NetworkMonitor] WAITING: Waiting for data signal...")
                                 var signalRecovered = false
                                 for (i in 1..30) { 
                                     delay(1000)
-                                    try {
-                                        val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry"))
-                                        val out = proc.inputStream.bufferedReader().use { it.readText() }
-                                        if (out.contains("mDataConnectionState=2")) {
-                                            signalRecovered = true
-                                            break
-                                        }
-                                    } catch (e: Exception) {}
+                                    val out = runShellCommand(arrayOf("su", "-c", "dumpsys telephony.registry"))
+                                    if (out.contains("mDataConnectionState=2")) {
+                                        signalRecovered = true
+                                        break
+                                    }
                                 }
                                 
                                 writeCustomLog(if (signalRecovered) "[NetworkMonitor] SUCCESS: Signal Recovered" else "[NetworkMonitor] TIMEOUT: Signal recovery took too long")
                                 delay(2000)
                                 
                             } catch (e: Exception) {
-                                // Fallback to restart if root command fails unexpectedly
                                 writeCustomLog("[NetworkMonitor] ERR: Root command failed. Switching to soft restart.", true)
                                 scope.launch {
                                     stop()
@@ -284,7 +298,7 @@ class ZivpnManager(
                                 start()
                                 writeCustomLog("[NetworkMonitor] INFO: Soft Restart Completed.")
                             }
-                            break // Exit current loop, new loop will start with start()
+                            break 
                         }
                     }
                 }
@@ -293,9 +307,12 @@ class ZivpnManager(
     }
 
     private fun isRootAvailable(): Boolean {
+        // Use helper but check for explicit success logic if needed, 
+        // though for 'id', just checking if it runs without exception is usually enough check for existence of 'su' binary,
+        // but checking exitValue is better.
         return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
-            process.waitFor() == 0
+            val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            p.waitFor() == 0
         } catch (e: Exception) {
             false
         }
