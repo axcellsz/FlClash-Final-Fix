@@ -54,7 +54,7 @@ class MainActivity : FlutterActivity(),
                 outFile.setExecutable(true)
                 // Double ensure with chmod via runtime
                 try {
-                    Runtime.getRuntime().exec("chmod 777 ${outFile.absolutePath}").waitFor()
+                    Runtime.getRuntime().exec(arrayOf("chmod", "777", outFile.absolutePath)).waitFor()
                 } catch (e: Exception) {}
             }
             android.util.Log.i("FlClash", "Binaries extracted successfully to ${binDir.absolutePath}")

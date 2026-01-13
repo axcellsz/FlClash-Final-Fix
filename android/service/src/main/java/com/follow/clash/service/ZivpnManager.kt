@@ -175,12 +175,15 @@ class ZivpnManager(
             var failCount = 0
             val maxFail = (timeoutSec / 5).coerceAtLeast(1)
             
-            // 1. Initial Setup: Mimic modpes radios config
-            try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax")).waitFor()
-            } catch (e: Exception) {}
+            // 1. Initial Setup: Mimic modpes radios config (Only if Root)
+            val hasRoot = isRootAvailable()
+            if (hasRoot) {
+                try {
+                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax")).waitFor()
+                } catch (e: Exception) {}
+            }
 
-            writeCustomLog("[NetworkMonitor] STARTED (Timeout: ${timeoutSec}s, MaxFail: $maxFail)")
+            writeCustomLog("[NetworkMonitor] STARTED (Timeout: ${timeoutSec}s, MaxFail: $maxFail, Mode: ${if (hasRoot) "ROOT (Airplane)" else "NON-ROOT (Restart)"})")
 
             while (isActive) {
                 delay(5000)
@@ -210,58 +213,78 @@ class ZivpnManager(
                     if (failCount >= maxFail) {
                         failCount = 0 
                         
-                        // 2. Strict Call Check: mCallState=2 (Mimic modpes)
-                        var isCalling = false
-                        try {
-                            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry | grep mCallState"))
-                            process.inputStream.bufferedReader().use { reader ->
-                                if (reader.readText().contains("mCallState=2")) {
-                                    isCalling = true
-                                }
-                            }
-                        } catch (e: Exception) {}
-
-                        if (isCalling) {
-                            writeCustomLog("[NetworkMonitor] SKIP: User is in a call, reset aborted", true)
-                            continue
-                        }
-
-                        writeCustomLog("[NetworkMonitor] ACTION: Connection Dead. Toggling Airplane Mode...")
-                        
-                        try {
-                            // 3. Reset Action
-                            val result = Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode enable")).waitFor()
-                            if (result == 0) {
-                                delay(2000)
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode disable")).waitFor()
-                            } else {
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1")).waitFor()
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")).waitFor()
-                                delay(2500)
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0")).waitFor()
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")).waitFor()
-                            }
-                            
-                            // 4. Wait for Data: Polling mDataConnectionState=2 (Mimic modpes until loop)
-                            writeCustomLog("[NetworkMonitor] WAITING: Waiting for data signal...")
-                            var signalRecovered = false
-                            for (i in 1..30) { // Timeout 30s for signal recovery
-                                delay(1000)
-                                try {
-                                    val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry"))
-                                    val out = proc.inputStream.bufferedReader().use { it.readText() }
-                                    if (out.contains("mDataConnectionState=2")) {
-                                        signalRecovered = true
-                                        break
+                        if (hasRoot) {
+                            // --- ROOT MODE: AIRPLANE TOGGLE ---
+                            // 2. Strict Call Check: mCallState=2
+                            var isCalling = false
+                            try {
+                                val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry | grep mCallState"))
+                                process.inputStream.bufferedReader().use { reader ->
+                                    if (reader.readText().contains("mCallState=2")) {
+                                        isCalling = true
                                     }
-                                } catch (e: Exception) {}
+                                }
+                            } catch (e: Exception) {}
+
+                            if (isCalling) {
+                                writeCustomLog("[NetworkMonitor] SKIP: User is in a call, reset aborted", true)
+                                continue
                             }
+
+                            writeCustomLog("[NetworkMonitor] ACTION: Connection Dead. Toggling Airplane Mode...")
                             
-                            writeCustomLog(if (signalRecovered) "[NetworkMonitor] SUCCESS: Signal Recovered" else "[NetworkMonitor] TIMEOUT: Signal recovery took too long")
-                            delay(2000) 
-                            
-                        } catch (e: Exception) {
-                            writeCustomLog("[NetworkMonitor] ERROR: Root execution failed: ${e.message}", true)
+                            try {
+                                // 3. Reset Action
+                                val result = Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode enable")).waitFor()
+                                if (result == 0) {
+                                    delay(2000)
+                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode disable")).waitFor()
+                                } else {
+                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1")).waitFor()
+                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")).waitFor()
+                                    delay(2500)
+                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0")).waitFor()
+                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")).waitFor()
+                                }
+                                
+                                // 4. Wait for Data
+                                writeCustomLog("[NetworkMonitor] WAITING: Waiting for data signal...")
+                                var signalRecovered = false
+                                for (i in 1..30) { 
+                                    delay(1000)
+                                    try {
+                                        val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry"))
+                                        val out = proc.inputStream.bufferedReader().use { it.readText() }
+                                        if (out.contains("mDataConnectionState=2")) {
+                                            signalRecovered = true
+                                            break
+                                        }
+                                    } catch (e: Exception) {}
+                                }
+                                
+                                writeCustomLog(if (signalRecovered) "[NetworkMonitor] SUCCESS: Signal Recovered" else "[NetworkMonitor] TIMEOUT: Signal recovery took too long")
+                                delay(2000)
+                                
+                            } catch (e: Exception) {
+                                // Fallback to restart if root command fails unexpectedly
+                                writeCustomLog("[NetworkMonitor] ERR: Root command failed. Switching to soft restart.", true)
+                                scope.launch {
+                                    stop()
+                                    delay(2000)
+                                    start()
+                                }
+                                break
+                            }
+                        } else {
+                            // --- NON-ROOT MODE: SOFT RESTART ---
+                            writeCustomLog("[NetworkMonitor] ACTION: Connection Dead. Executing Soft Restart (Non-Root)...")
+                            scope.launch {
+                                stop()
+                                delay(2000)
+                                start()
+                                writeCustomLog("[NetworkMonitor] INFO: Soft Restart Completed.")
+                            }
+                            break // Exit current loop, new loop will start with start()
                         }
                     }
                 }
@@ -269,44 +292,59 @@ class ZivpnManager(
         }
     }
 
+    private fun isRootAvailable(): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            false
+        }
+    }
+        }
+    }
+
+    private val logLock = Any()
+    private val MAX_LOG_SIZE = 2 * 1024 * 1024 // 2MB Limit
+
+    private fun appendLog(tag: String, msg: String, isError: Boolean) {
+        synchronized(logLock) {
+            try {
+                val logDir = File(context.filesDir, "zivpn_logs")
+                if (!logDir.exists()) logDir.mkdirs()
+                val logFile = File(logDir, "zivpn_core.log")
+
+                // Log Rotation Logic
+                if (logFile.exists() && logFile.length() > MAX_LOG_SIZE) {
+                    val backupFile = File(logDir, "zivpn_core.log.bak")
+                    if (backupFile.exists()) backupFile.delete()
+                    logFile.renameTo(backupFile)
+                }
+
+                val dateFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                val timestamp = dateFormat.format(java.util.Date())
+                val type = if (isError) "ERR" else "OUT"
+                val logLine = "[$timestamp] [$tag] [$type] $msg\n"
+
+                java.io.FileWriter(logFile, true).use { 
+                    it.write(logLine) 
+                }
+            } catch (e: Exception) {}
+        }
+    }
+
     private fun writeCustomLog(msg: String, isError: Boolean = false) {
-        try {
-            val logDir = File(context.filesDir, "zivpn_logs")
-            if (!logDir.exists()) logDir.mkdirs()
-            val logFile = File(logDir, "zivpn_core.log")
-            val dateFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-            val timestamp = dateFormat.format(java.util.Date())
-            val type = if (isError) "ERR" else "OUT"
-            val logLine = "[$timestamp] [SYSTEM] [$type] $msg\n"
-            
-            java.io.FileWriter(logFile, true).use { it.write(logLine) }
-            if (isError) Log.e("FlClash", msg) else Log.i("FlClash", msg)
-        } catch (e: Exception) {}
+        if (isError) Log.e("FlClash", msg) else Log.i("FlClash", msg)
+        appendLog("SYSTEM", msg, isError)
     }
 
     private fun startProcessLogger(process: Process, tag: String) {
-        val logDir = File(context.filesDir, "zivpn_logs")
-        if (!logDir.exists()) logDir.mkdirs()
-        val logFile = File(logDir, "zivpn_core.log")
-        
-        val writer = java.io.FileWriter(logFile, true)
-        val dateFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-
-        fun writeLog(msg: String, isError: Boolean) {
-            val timestamp = dateFormat.format(java.util.Date())
-            val type = if (isError) "ERR" else "OUT"
-            val logLine = "[$timestamp] [$tag] [$type] $msg\n"
-            if (isError) Log.e("FlClash", "[$tag] $msg") else Log.i("FlClash", "[$tag] $msg")
-            try {
-                writer.write(logLine)
-                writer.flush()
-            } catch (e: Exception) {}
-        }
-
         Thread {
             try {
                 process.inputStream.bufferedReader().use { reader ->
-                    reader.forEachLine { writeLog(it, false) }
+                    reader.forEachLine { 
+                        Log.i("FlClash", "[$tag] $it")
+                        appendLog(tag, it, false)
+                    }
                 }
             } catch (e: Exception) {}
         }.start()
@@ -314,7 +352,10 @@ class ZivpnManager(
         Thread {
             try {
                 process.errorStream.bufferedReader().use { reader ->
-                    reader.forEachLine { writeLog(it, true) }
+                    reader.forEachLine { 
+                        Log.e("FlClash", "[$tag] $it")
+                        appendLog(tag, it, true)
+                    }
                 }
             } catch (e: Exception) {}
         }.start()
