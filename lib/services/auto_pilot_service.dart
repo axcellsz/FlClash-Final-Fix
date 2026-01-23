@@ -25,8 +25,8 @@ class AutoPilotService {
          throw 'Shizuku service is not running.';
       }
 
-      if (!await _shizuku.checkPermission()) {
-        final granted = await _shizuku.requestPermission();
+      if (!(await _shizuku.checkPermission() ?? false)) {
+        final granted = await _shizuku.requestPermission() ?? false;
         if (!granted) {
           throw 'Shizuku Permission Denied';
         }
