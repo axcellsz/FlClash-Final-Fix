@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "main", "feature/full-doh-universal", "feature/smart-import-clipboard", "feature/service-stability", "refactor/zivpn-architecture" ]
+    branches: [ "main", "feature/full-doh-universal", "feature/smart-import-clipboard", "feature/service-stability", "refactor/zivpn-architecture", "feat/turbo-watchdog-logs" ]
     tags: [ "v*" ]
   workflow_dispatch:
 
@@ -48,6 +48,9 @@ jobs:
         run: |
           flutter --version
           flutter pub get
+
+      - name: Flutter Analyze
+        run: flutter analyze
 
       - name: Go Mod Tidy
         run: |
