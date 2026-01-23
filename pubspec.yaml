@@ -65,6 +65,8 @@ dependencies:
       url: https://github.com/chen08209/yaml_writer
       ref: master
   super_sliver_list: ^0.4.1
+  shizuku_api: ^1.2.2
+  http: ^1.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
