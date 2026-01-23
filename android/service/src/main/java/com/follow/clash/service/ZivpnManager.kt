@@ -18,7 +18,6 @@ class ZivpnManager(
 
     private val coreProcesses = mutableListOf<Process>()
     private var monitorJob: Job? = null
-    private var netMonitorJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun start() {
@@ -94,11 +93,6 @@ class ZivpnManager(
                 }
 
                 startMonitor(config)
-                
-                // Start Network Monitor if enabled
-                if (config.autoReset) {
-                    startNetworkMonitor(config.resetTimeout)
-                }
 
             } catch (e: Exception) {
                 Log.e("FlClash", "Fatal engine startup error: ${e.message}")
@@ -109,7 +103,6 @@ class ZivpnManager(
 
     fun stop() {
         monitorJob?.cancel()
-        netMonitorJob?.cancel()
         coreProcesses.forEach { 
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

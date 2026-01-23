@@ -92,14 +92,6 @@ class MainActivity : FlutterActivity(),
                 } catch (e: Exception) {
                     result.error("WRITE_ERR", "Failed to save config: ${e.message}", null)
                 }
-            } else if (call.method == "request_su") {
-                try {
-                    val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
-                    val exitCode = process.waitFor()
-                    result.success(exitCode == 0)
-                } catch (e: Exception) {
-                    result.error("SU_ERR", e.message, null)
-                }
             } else if (call.method == "request_battery") {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
