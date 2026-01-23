@@ -444,14 +444,46 @@ $dnsConfig
                   style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 11),
                 ),
                 value: _autoReset,
-                onChanged: (bool value) {
-                  setState(() {
-                    _autoReset = value;
-                  });
+                onChanged: (bool value) async {
                   if (value) {
-                     ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Ensure Shizuku is authorized for FlClash.')),
-                     );
+                    // Trigger Shizuku Permission Check
+                    const platform = MethodChannel('com.follow.clash/hysteria');
+                    try {
+                        if (mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Requesting Shizuku permission...')),
+                           );
+                        }
+                        
+                        await platform.invokeMethod('test_shizuku');
+                        
+                        setState(() {
+                           _autoReset = true;
+                        });
+                        
+                        if (mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Shizuku Authorized! Auto-Pilot enabled.')),
+                           );
+                        }
+                    } catch (e) {
+                        setState(() {
+                           _autoReset = false; // Revert toggle if failed
+                        });
+                        if (mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Shizuku Check Failed: ${e.toString()}'),
+                                duration: const Duration(seconds: 5),
+                                action: SnackBarAction(label: "RETRY", onPressed: (){}),
+                              ),
+                           );
+                        }
+                    }
+                  } else {
+                    setState(() {
+                      _autoReset = false;
+                    });
                   }
                 },
               ),

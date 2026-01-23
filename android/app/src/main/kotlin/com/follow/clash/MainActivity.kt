@@ -102,6 +102,32 @@ class MainActivity : FlutterActivity(),
                 } catch (e: Exception) {
                     result.error("SU_ERR", e.message, null)
                 }
+            } else if (call.method == "test_shizuku") {
+                 CoroutineScope(Dispatchers.IO).launch {
+                     try {
+                         val rishPath = File(filesDir, "rish").absolutePath
+                         if (!File(rishPath).exists()) {
+                             withContext(Dispatchers.Main) { result.error("NO_BINARY", "Rish binary not found", null) }
+                             return@launch
+                         }
+                         
+                         // Run a harmless command to trigger Shizuku prompt
+                         val p = Runtime.getRuntime().exec(arrayOf("sh", rishPath, "-c", "echo permission_check"))
+                         val exitCode = p.waitFor()
+                         
+                         withContext(Dispatchers.Main) {
+                             if (exitCode == 0) {
+                                 result.success(true)
+                             } else {
+                                 // Read error to see why
+                                 val err = p.errorStream.bufferedReader().readText()
+                                 result.error("PERM_DENIED", "Shizuku verification failed: $err", null)
+                             }
+                         }
+                     } catch (e: Exception) {
+                         withContext(Dispatchers.Main) { result.error("EXEC_ERR", e.message, null) }
+                     }
+                 }
             } else if (call.method == "request_battery") {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
