@@ -172,18 +172,14 @@ class ZivpnManager(
     private fun startNetworkMonitor(timeoutSec: Int) {
         netMonitorJob?.cancel()
         netMonitorJob = scope.launch {
-            var failCount = 0
             val maxFail = (timeoutSec / 5).coerceAtLeast(1)
-            
-            // 1. Initial Setup: Mimic modpes radios config
-            try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_radios cell,bluetooth,nfc,wifi,wimax")).waitFor()
-            } catch (e: Exception) {}
+            var failCount = 0
+            val rishPath = File(context.filesDir, "rish").absolutePath
 
-            writeCustomLog("[NetworkMonitor] STARTED (Timeout: ${timeoutSec}s, MaxFail: $maxFail)")
+            writeCustomLog("[AutoPilot] STARTED (Shizuku Mode). Timeout: ${timeoutSec}s")
 
             while (isActive) {
-                delay(5000)
+                delay(5000) // Interval check
                 
                 val isConnected = try {
                     val url = URL("https://www.gstatic.com/generate_204")
@@ -195,73 +191,63 @@ class ZivpnManager(
                     conn.connect()
                     val responseCode = conn.responseCode
                     conn.disconnect()
-                    responseCode == 204
+                    responseCode == 204 || responseCode == 200
                 } catch (e: Exception) {
                     false
                 }
 
                 if (isConnected) {
-                    if (failCount > 0) writeCustomLog("[NetworkMonitor] CHECK: Internet Recovered")
+                    if (failCount > 0) writeCustomLog("[AutoPilot] RECOVERED: Internet is back.")
                     failCount = 0
                 } else {
                     failCount++
-                    writeCustomLog("[NetworkMonitor] WARNING: Connection Check Failed ($failCount/$maxFail)", true)
+                    writeCustomLog("[AutoPilot] WARNING: Connection Lost ($failCount/$maxFail)", true)
                     
                     if (failCount >= maxFail) {
-                        failCount = 0 
-                        
-                        // 2. Strict Call Check: mCallState=2 (Mimic modpes)
-                        var isCalling = false
-                        try {
-                            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry | grep mCallState"))
-                            process.inputStream.bufferedReader().use { reader ->
-                                if (reader.readText().contains("mCallState=2")) {
-                                    isCalling = true
-                                }
-                            }
-                        } catch (e: Exception) {}
+                        failCount = 0
+                        writeCustomLog("[AutoPilot] ACTION: Resetting Network via Shizuku...")
 
-                        if (isCalling) {
-                            writeCustomLog("[NetworkMonitor] SKIP: User is in a call, reset aborted", true)
+                        if (!File(rishPath).exists()) {
+                            writeCustomLog("[AutoPilot] ERROR: rish binary not found at $rishPath", true)
+                            // Optional: Retry extraction or notify
                             continue
                         }
 
-                        writeCustomLog("[NetworkMonitor] ACTION: Connection Dead. Toggling Airplane Mode...")
-                        
                         try {
-                            // 3. Reset Action
-                            val result = Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode enable")).waitFor()
-                            if (result == 0) {
-                                delay(2000)
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "cmd connectivity airplane-mode disable")).waitFor()
-                            } else {
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1")).waitFor()
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")).waitFor()
-                                delay(2500)
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0")).waitFor()
-                                Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")).waitFor()
+                            // Helper with detailed logging
+                            suspend fun runCommand(cmd: Array<String>, tag: String) {
+                                val p = Runtime.getRuntime().exec(cmd)
+                                
+                                // Read streams in background to prevent buffer deadlock
+                                val stdoutDeferred = async(Dispatchers.IO) { 
+                                    p.inputStream.bufferedReader().use { it.readText().trim() } 
+                                }
+                                val stderrDeferred = async(Dispatchers.IO) { 
+                                    p.errorStream.bufferedReader().use { it.readText().trim() } 
+                                }
+                                
+                                val exitCode = p.waitFor()
+                                val stdout = stdoutDeferred.await()
+                                val stderr = stderrDeferred.await()
+
+                                if (stdout.isNotEmpty()) writeCustomLog("[$tag] OUT: $stdout")
+                                if (stderr.isNotEmpty()) writeCustomLog("[$tag] ERR: $stderr", true)
+                                if (exitCode != 0) writeCustomLog("[$tag] FAILED (Exit: $exitCode)", true)
                             }
+
+                            // 1. Enable Airplane Mode
+                            runCommand(arrayOf("sh", rishPath, "-c", "cmd connectivity airplane-mode enable"), "CMD_ENABLE")
                             
-                            // 4. Wait for Data: Polling mDataConnectionState=2 (Mimic modpes until loop)
-                            writeCustomLog("[NetworkMonitor] WAITING: Waiting for data signal...")
-                            var signalRecovered = false
-                            for (i in 1..30) { // Timeout 30s for signal recovery
-                                delay(1000)
-                                try {
-                                    val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "dumpsys telephony.registry"))
-                                    val out = proc.inputStream.bufferedReader().use { it.readText() }
-                                    if (out.contains("mDataConnectionState=2")) {
-                                        signalRecovered = true
-                                        break
-                                    }
-                                } catch (e: Exception) {}
-                            }
-                            
-                            writeCustomLog(if (signalRecovered) "[NetworkMonitor] SUCCESS: Signal Recovered" else "[NetworkMonitor] TIMEOUT: Signal recovery took too long")
-                            delay(2000) 
+                            delay(3000) // Wait 3s
+
+                            // 2. Disable Airplane Mode
+                            runCommand(arrayOf("sh", rishPath, "-c", "cmd connectivity airplane-mode disable"), "CMD_DISABLE")
+
+                            writeCustomLog("[AutoPilot] DONE: Airplane Toggle Complete. Waiting for signal...")
+                            delay(10000) // Wait 10s for signal
                             
                         } catch (e: Exception) {
-                            writeCustomLog("[NetworkMonitor] ERROR: Root execution failed: ${e.message}", true)
+                            writeCustomLog("[AutoPilot] EXCEPTION: ${e.message}", true)
                         }
                     }
                 }

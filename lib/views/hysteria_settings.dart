@@ -436,41 +436,22 @@ $dnsConfig
                   children: [
                     Icon(Icons.bolt, color: Colors.amber),
                     SizedBox(width: 8),
-                    Text('Auto-Reset Network'),
+                    Text('Auto-Reset Network (Auto-Pilot)'),
                   ],
                 ),
                 subtitle: const Text(
-                  'REQUIRES ROOT. Automatically toggles Airplane Mode if internet dies (Fixes UDP Jammed).',
-                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                  'REQUIRES SHIZUKU. Automatically toggles Airplane Mode if internet dies. Make sure Shizuku is running.',
+                  style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 11),
                 ),
                 value: _autoReset,
-                onChanged: (bool value) async {
+                onChanged: (bool value) {
+                  setState(() {
+                    _autoReset = value;
+                  });
                   if (value) {
-                    const platform = MethodChannel('com.follow.clash/hysteria');
-                    try {
-                      final bool granted = await platform.invokeMethod('request_su');
-                      if (granted) {
-                        setState(() {
-                          _autoReset = true;
-                        });
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Root access denied. Please grant permission in Magisk/KernelSU.')),
-                          );
-                        }
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Root error: $e')),
-                        );
-                      }
-                    }
-                  } else {
-                    setState(() {
-                      _autoReset = false;
-                    });
+                     ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Ensure Shizuku is authorized for FlClash.')),
+                     );
                   }
                 },
               ),

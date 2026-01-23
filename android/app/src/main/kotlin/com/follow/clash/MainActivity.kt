@@ -35,31 +35,33 @@ class MainActivity : FlutterActivity(),
         super.onCreate(savedInstanceState)
         lifecycleScope.launch {
             State.destroyServiceEngine()
-            // extractBinaries() // Disabled: Using jniLibs packaging now
+            extractBinaries() 
         }
     }
 
     private fun extractBinaries() {
-        try {
-            val binDir = filesDir
-            
-            listOf("libuz.so", "libload.so").forEach { fileName ->
+        val binDir = filesDir
+        val binaries = listOf("libuz.so", "libload.so", "rish", "rish_shizuku.dex")
+
+        binaries.forEach { fileName ->
+            try {
                 val outFile = File(binDir, fileName)
-                // Always overwrite to ensure latest version from assets
+                // Try to open from assets
                 assets.open("flutter_assets/assets/bin/$fileName").use { input ->
                     FileOutputStream(outFile).use { output ->
                         input.copyTo(output)
                     }
                 }
                 outFile.setExecutable(true)
-                // Double ensure with chmod via runtime
                 try {
-                    Runtime.getRuntime().exec("chmod 777 ${outFile.absolutePath}").waitFor()
+                    Runtime.getRuntime().exec("chmod 755 ${outFile.absolutePath}").waitFor()
                 } catch (e: Exception) {}
+                
+                android.util.Log.i("FlClash", "Extracted: $fileName")
+            } catch (e: Exception) {
+                // Log but continue (e.g., .so files might not be in assets if using jniLibs)
+                android.util.Log.w("FlClash", "Skipped extraction for $fileName: ${e.message}")
             }
-            android.util.Log.i("FlClash", "Binaries extracted successfully to ${binDir.absolutePath}")
-        } catch (e: Exception) {
-            android.util.Log.e("FlClash", "Failed to extract binaries: ${e.message}")
         }
     }
 
