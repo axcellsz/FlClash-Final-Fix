@@ -7,8 +7,8 @@ class AutoPilotService {
   factory AutoPilotService() => _instance;
   AutoPilotService._internal();
 
-  // Instantiate the Shizuku API object as implied by GEMINI2.md
-  final _shizuku = ShizukuApi(); 
+  // Instantiate based on GEMINI2.md Appendix
+  final _shizuku = ShizukuApi();
 
   Timer? _timer;
   bool _isRunning = false;
@@ -19,7 +19,12 @@ class AutoPilotService {
     if (_isRunning) return;
 
     try {
-      // Use exact method names from GEMINI2.md
+      // Use pingBinder first as suggested in Appendix
+      final isBinderAlive = await _shizuku.pingBinder() ?? false;
+      if (!isBinderAlive) {
+         throw 'Shizuku service is not running.';
+      }
+
       if (!await _shizuku.checkPermission()) {
         final granted = await _shizuku.requestPermission();
         if (!granted) {
@@ -67,7 +72,7 @@ class AutoPilotService {
 
   Future<void> _performReset() async {
     try {
-      // Use exact command from GEMINI2.md
+      // Use runCommand as specified in Appendix
       await _shizuku.runCommand('cmd connectivity airplane-mode enable');
       await Future.delayed(const Duration(seconds: 3));
       
