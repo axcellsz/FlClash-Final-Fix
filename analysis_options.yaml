@@ -2,6 +2,7 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - lib/l10n/intl/**
+    - plugins/**
   errors:
     invalid_annotation_target: ignore
 
