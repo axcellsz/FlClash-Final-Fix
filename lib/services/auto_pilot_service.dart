@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shizuku_api/shizuku_api.dart';
+import 'package:shizuku_api/shizuku_api.dart' as sz;
 
 class AutoPilotService {
   static final AutoPilotService _instance = AutoPilotService._internal();
@@ -16,24 +15,20 @@ class AutoPilotService {
   Future<void> start() async {
     if (_isRunning) return;
 
-    // Check Shizuku Permission
     try {
-      final hasPermission = await Shizuku.checkSelfPermission();
+      // Use alias to avoid scope confusion
+      final hasPermission = await sz.Shizuku.checkSelfPermission();
       if (hasPermission != true) {
-        final granted = await Shizuku.requestPermission();
+        final granted = await sz.Shizuku.requestPermission();
         if (granted != true) {
           throw 'Shizuku Permission Denied';
         }
       }
     } catch (e) {
-      // Handle "Shizuku not running" or other errors
       rethrow;
     }
 
     _isRunning = true;
-    // Initial check immediately
-    _checkAndRecover();
-    // Loop every 15s
     _timer = Timer.periodic(const Duration(seconds: 15), (timer) async {
       await _checkAndRecover();
     });
@@ -49,7 +44,6 @@ class AutoPilotService {
     
     final hasInternet = await checkInternet();
     if (!hasInternet) {
-      // Double check before acting
       await Future.delayed(const Duration(seconds: 1));
       if (!await checkInternet()) {
          await _performReset();
@@ -71,31 +65,21 @@ class AutoPilotService {
 
   Future<void> _performReset() async {
     try {
-      // Enable Airplane Mode
       await _runShizukuCommand('cmd connectivity airplane-mode enable');
-      
       await Future.delayed(const Duration(seconds: 3));
-      
-      // Disable Airplane Mode
       await _runShizukuCommand('cmd connectivity airplane-mode disable');
-      
-      // Cooldown to prevent spam
       await Future.delayed(const Duration(seconds: 10));
     } catch (e) {
-      // Log error internally or to debug console
       print('[AutoPilot] Reset Error: $e');
     }
   }
 
   Future<void> _runShizukuCommand(String cmd) async {
-    // Execute command via sh -c
-    // Using newProcess from shizuku_api
-    final process = await Shizuku.newProcess(
+    // Explicitly use the static class from the library
+    final process = await sz.Shizuku.newProcess(
       ['sh', '-c', cmd], 
       environment: {}
     );
-    
-    // Wait for exit
     await process.exitCode;
   }
 }
