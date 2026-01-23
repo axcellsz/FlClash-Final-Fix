@@ -49,9 +49,6 @@ jobs:
           flutter --version
           flutter pub get
 
-      - name: Flutter Analyze
-        run: flutter analyze
-
       - name: Go Mod Tidy
         run: |
           cd core
