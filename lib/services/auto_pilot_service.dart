@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
-import 'package:shizuku_api/shizuku_api.dart' as sz;
+import 'package:shizuku_api/shizuku_api.dart';
 
 class AutoPilotService {
   static final AutoPilotService _instance = AutoPilotService._internal();
   factory AutoPilotService() => _instance;
   AutoPilotService._internal();
+
+  // Instantiate the Shizuku API object as implied by GEMINI2.md
+  final _shizuku = ShizukuApi(); 
 
   Timer? _timer;
   bool _isRunning = false;
@@ -16,11 +19,10 @@ class AutoPilotService {
     if (_isRunning) return;
 
     try {
-      // Use alias to avoid scope confusion
-      final hasPermission = await sz.Shizuku.checkSelfPermission();
-      if (hasPermission != true) {
-        final granted = await sz.Shizuku.requestPermission();
-        if (granted != true) {
+      // Use exact method names from GEMINI2.md
+      if (!await _shizuku.checkPermission()) {
+        final granted = await _shizuku.requestPermission();
+        if (!granted) {
           throw 'Shizuku Permission Denied';
         }
       }
@@ -65,21 +67,14 @@ class AutoPilotService {
 
   Future<void> _performReset() async {
     try {
-      await _runShizukuCommand('cmd connectivity airplane-mode enable');
+      // Use exact command from GEMINI2.md
+      await _shizuku.runCommand('cmd connectivity airplane-mode enable');
       await Future.delayed(const Duration(seconds: 3));
-      await _runShizukuCommand('cmd connectivity airplane-mode disable');
+      
+      await _shizuku.runCommand('cmd connectivity airplane-mode disable');
       await Future.delayed(const Duration(seconds: 10));
     } catch (e) {
       print('[AutoPilot] Reset Error: $e');
     }
-  }
-
-  Future<void> _runShizukuCommand(String cmd) async {
-    // Explicitly use the static class from the library
-    final process = await sz.Shizuku.newProcess(
-      ['sh', '-c', cmd], 
-      environment: {}
-    );
-    await process.exitCode;
   }
 }
