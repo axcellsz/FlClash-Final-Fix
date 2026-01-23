@@ -12,6 +12,8 @@ class AutoPilotService {
 
   Timer? _timer;
   bool _isRunning = false;
+  int _failCount = 0;
+  static const int _maxFail = 3;
 
   bool get isRunning => _isRunning;
 
@@ -36,6 +38,7 @@ class AutoPilotService {
     }
 
     _isRunning = true;
+    _failCount = 0;
     _timer = Timer.periodic(const Duration(seconds: 15), (timer) async {
       await _checkAndRecover();
     });
@@ -44,15 +47,23 @@ class AutoPilotService {
   void stop() {
     _timer?.cancel();
     _isRunning = false;
+    _failCount = 0;
   }
 
   Future<void> _checkAndRecover() async {
     if (!_isRunning) return;
     
     final hasInternet = await checkInternet();
-    if (!hasInternet) {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!await checkInternet()) {
+    
+    if (hasInternet) {
+      if (_failCount > 0) print('[AutoPilot] Internet Recovered');
+      _failCount = 0;
+    } else {
+      _failCount++;
+      print('[AutoPilot] Connection Lost ($_failCount/$_maxFail)');
+      
+      if (_failCount >= _maxFail) {
+         _failCount = 0; // Reset trigger
          await _performReset();
       }
     }
