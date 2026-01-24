@@ -58,8 +58,39 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
           const SizedBox(height: 24),
           _buildRecoverySection(),
           const SizedBox(height: 24),
+          _buildHealthCheckSection(), // Added
+          const SizedBox(height: 24),
           _buildAdvancedSection(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHealthCheckSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Health Check Settings',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Auto Health Check (Ping)'),
+              subtitle: const Text('Automatically ping proxies while internet is OK'),
+              value: _config.autoHealthCheck,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (value) {
+                _updateConfig(_config.copyWith(
+                  autoHealthCheck: value,
+                ));
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

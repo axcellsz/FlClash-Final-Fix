@@ -325,7 +325,54 @@ class AppController {
     }
   }
 
-  Future _applyProfile() async {
+  Future<void> autoHealthCheck() async {
+    try {
+      final currentGroups = getCurrentGroups();
+      if (currentGroups.isEmpty) return;
+      
+      final currentGroupName = getCurrentGroupName();
+      final activeGroup = currentGroups.firstWhere(
+        (g) => g.name == currentGroupName,
+        orElse: () => currentGroups.first,
+      );
+
+      commonPrint.log("[AutoPilot] Triggering Auto Health Check for ${activeGroup.name}");
+      await delayTest(activeGroup.all, activeGroup.testUrl);
+    } catch (e) {
+      commonPrint.log("[AutoPilot] Health check failed: $e");
+    }
+  }
+
+  Future<void> delayTest(List<Proxy> proxies, [String? testUrl]) async {
+    final proxyNames = proxies.map((proxy) => proxy.name).toSet().toList();
+
+    final delayProxies = proxyNames.map<Future>((proxyName) async {
+      final groups = globalState.appState.groups;
+      final selectedMap = globalState.config.currentProfile?.selectedMap ?? {};
+      final state = computeRealSelectedProxyState(
+        proxyName,
+        groups: groups,
+        selectedMap: selectedMap,
+      );
+      final url = state.testUrl.getSafeValue(
+        getRealTestUrl(testUrl),
+      );
+      final name = state.proxyName;
+      if (name.isEmpty) {
+        return;
+      }
+      setDelay(Delay(url: url, name: name, value: 0));
+      setDelay(await coreController.getDelay(url, name));
+    }).toList();
+
+    final batchesDelayProxies = delayProxies.batch(24);
+    for (final batchDelayProxies in batchesDelayProxies) {
+      await Future.wait(batchDelayProxies);
+    }
+    addSortNum();
+  }
+
+  Future<void> _applyProfile() async {
     await setupClashConfig();
     await updateGroups();
     await updateProviders();

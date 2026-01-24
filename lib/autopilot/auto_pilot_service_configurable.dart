@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shizuku_api/shizuku_api.dart';
+import 'package:fl_clash/state.dart';
 
 class AutoPilotConfig {
   final int checkIntervalSeconds;
@@ -8,6 +9,7 @@ class AutoPilotConfig {
   final int maxFailCount;
   final int airplaneModeDelaySeconds;
   final int recoveryWaitSeconds;
+  final bool autoHealthCheck; // Added
 
   const AutoPilotConfig({
     this.checkIntervalSeconds = 15,
@@ -15,6 +17,7 @@ class AutoPilotConfig {
     this.maxFailCount = 3,
     this.airplaneModeDelaySeconds = 3,
     this.recoveryWaitSeconds = 10,
+    this.autoHealthCheck = true, // Added Default True
   });
 
   AutoPilotConfig copyWith({
@@ -23,6 +26,7 @@ class AutoPilotConfig {
     int? maxFailCount,
     int? airplaneModeDelaySeconds,
     int? recoveryWaitSeconds,
+    bool? autoHealthCheck,
   }) {
     return AutoPilotConfig(
       checkIntervalSeconds: checkIntervalSeconds ?? this.checkIntervalSeconds,
@@ -30,6 +34,7 @@ class AutoPilotConfig {
       maxFailCount: maxFailCount ?? this.maxFailCount,
       airplaneModeDelaySeconds: airplaneModeDelaySeconds ?? this.airplaneModeDelaySeconds,
       recoveryWaitSeconds: recoveryWaitSeconds ?? this.recoveryWaitSeconds,
+      autoHealthCheck: autoHealthCheck ?? this.autoHealthCheck,
     );
   }
 
@@ -40,6 +45,7 @@ class AutoPilotConfig {
       'maxFailCount': maxFailCount,
       'airplaneModeDelaySeconds': airplaneModeDelaySeconds,
       'recoveryWaitSeconds': recoveryWaitSeconds,
+      'autoHealthCheck': autoHealthCheck,
     };
   }
 
@@ -50,6 +56,7 @@ class AutoPilotConfig {
       maxFailCount: json['maxFailCount'] ?? 3,
       airplaneModeDelaySeconds: json['airplaneModeDelaySeconds'] ?? 3,
       recoveryWaitSeconds: json['recoveryWaitSeconds'] ?? 10,
+      autoHealthCheck: json['autoHealthCheck'] ?? true,
     );
   }
 }
@@ -196,6 +203,11 @@ class AutoPilotService {
       final hasInternet = await checkInternet();
 
       if (hasInternet) {
+        // Auto Health Check (Press Ping Button)
+        if (_config.autoHealthCheck && globalState.isStart) {
+           globalState.appController.autoHealthCheck();
+        }
+
         if (_currentState.failCount > 0) {
           _updateState(_currentState.copyWith(
             status: AutoPilotStatus.running,
