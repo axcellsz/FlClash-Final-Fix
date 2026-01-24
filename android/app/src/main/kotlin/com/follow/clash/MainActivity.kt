@@ -80,9 +80,10 @@ class MainActivity : FlutterActivity(),
                 val autoBoot = call.argument<Boolean>("auto_boot") ?: false
                 val autoReset = call.argument<Boolean>("auto_reset") ?: false
                 val resetTimeout = call.argument<Int>("reset_timeout") ?: 15
+                val recvWindowMultiplier = call.argument<Double>("recv_window_multiplier") ?: 1.0
 
                 // Use ZivpnConfig Model for consistency
-                val config = ZivpnConfig(ip, pass, obfs, portRange, mtu, autoBoot, autoReset, resetTimeout)
+                val config = ZivpnConfig(ip, pass, obfs, portRange, mtu, autoBoot, autoReset, resetTimeout, recvWindowMultiplier)
                 val configContent = ZivpnConfig.toJson(config)
 
                 try {

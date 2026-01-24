@@ -660,6 +660,7 @@ class AppController {
             'auto_boot': config['auto_boot'] ?? false,
             'auto_reset': config['auto_reset'] ?? false,
             'reset_timeout': config['reset_timeout'] ?? 15,
+            'recv_window_multiplier': config['recv_window_multiplier'] ?? 1.0,
           });
 
           // Trigger Service Restart if already running

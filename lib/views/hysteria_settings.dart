@@ -25,6 +25,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
   final TextEditingController _mtuController = TextEditingController();
   bool _enableKeepAlive = true;
   bool _autoBoot = false;
+  double _recvWindowMultiplier = 1.0;
   
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
     _obfsController.text = "hu``hqb`c";
     _portRangeController.text = "6000-19999";
     _mtuController.text = "9000";
+    _recvWindowMultiplier = 1.0;
     
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardForConfig());
   }
@@ -95,6 +97,7 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
       "port_range": portRange,
       "mtu": mtu,
       "auto_boot": _autoBoot,
+      "recv_window_multiplier": _recvWindowMultiplier,
     };
     final metadataString = jsonEncode(metadata);
 
@@ -248,7 +251,8 @@ $dnsConfig
       "pass": _passController.text.trim(),
       "obfs": _obfsController.text.trim(),
       "port_range": _portRangeController.text.trim(),
-      "mtu": _mtuController.text.trim()
+      "mtu": _mtuController.text.trim(),
+      "recv_window_multiplier": _recvWindowMultiplier,
     };
     
     final configString = "# HYSTERIA_CONFIG: ${jsonEncode(metadata)}";
@@ -286,6 +290,10 @@ $dnsConfig
         _obfsController.text = jsonMap['obfs']?.toString() ?? "";
         _portRangeController.text = jsonMap['port_range']?.toString() ?? "";
         _mtuController.text = jsonMap['mtu']?.toString() ?? "9000";
+        
+        if (jsonMap.containsKey('recv_window_multiplier')) {
+           _recvWindowMultiplier = double.tryParse(jsonMap['recv_window_multiplier'].toString()) ?? 1.0;
+        }
       });
     } catch (_) {}
   }
@@ -340,6 +348,23 @@ $dnsConfig
               TextField(
                 controller: _obfsController,
                 decoration: const InputDecoration(labelText: 'Obfs', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<double>(
+                value: _recvWindowMultiplier,
+                decoration: const InputDecoration(
+                  labelText: 'Receive Window (Buffer Size)',
+                  border: OutlineInputBorder(),
+                  helperText: 'Default: 1.0x. Increase for high speed, decrease for stability.'
+                ),
+                items: const [
+                  DropdownMenuItem(value: 0.5, child: Text('0.5x (Low Buffer)')),
+                  DropdownMenuItem(value: 1.0, child: Text('1.0x (Default)')),
+                  DropdownMenuItem(value: 1.5, child: Text('1.5x (High Speed)')),
+                  DropdownMenuItem(value: 2.0, child: Text('2.0x (Max Speed)')),
+                  DropdownMenuItem(value: 3.0, child: Text('3.0x (Extreme)')),
+                ],
+                onChanged: (val) => setState(() => _recvWindowMultiplier = val!),
               ),
               const SizedBox(height: 10),
               SwitchListTile(

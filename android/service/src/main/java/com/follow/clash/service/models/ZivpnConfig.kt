@@ -11,7 +11,8 @@ data class ZivpnConfig(
     val mtu: Int = 9000,
     val autoBoot: Boolean = false,
     val autoReset: Boolean = false,
-    val resetTimeout: Int = 15
+    val resetTimeout: Int = 15,
+    val recvWindowMultiplier: Double = 1.0
 ) {
     companion object {
         fun fromFile(file: File): ZivpnConfig {
@@ -26,7 +27,8 @@ data class ZivpnConfig(
                     mtu = json.optInt("mtu", 9000),
                     autoBoot = json.optBoolean("auto_boot", false),
                     autoReset = json.optBoolean("auto_reset", false),
-                    resetTimeout = json.optInt("reset_timeout", 15)
+                    resetTimeout = json.optInt("reset_timeout", 15),
+                    recvWindowMultiplier = json.optDouble("recv_window_multiplier", 1.0)
                 )
             } catch (e: Exception) {
                 ZivpnConfig()
@@ -43,6 +45,7 @@ data class ZivpnConfig(
                 put("auto_boot", config.autoBoot)
                 put("auto_reset", config.autoReset)
                 put("reset_timeout", config.resetTimeout)
+                put("recv_window_multiplier", config.recvWindowMultiplier)
             }.toString(4) // Pretty print
         }
     }

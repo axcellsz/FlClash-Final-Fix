@@ -54,9 +54,19 @@ class ZivpnManager(
                 val ports = listOf(20080, 20081, 20082, 20083)
                 val ranges = config.portRange.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
+                // Dynamic RecvWindow Calculation
+                val baseConn = 131072
+                val baseWin = 327680
+                val multiplier = config.recvWindowMultiplier
+                
+                val dynamicConn = (baseConn * multiplier).toInt()
+                val dynamicWin = (baseWin * multiplier).toInt()
+                
+                Log.i("FlClash", "Hysteria Config - Window: $dynamicWin, Conn: $dynamicConn (x$multiplier)")
+
                 for ((index, port) in ports.withIndex()) {
                     val currentRange = if (ranges.isNotEmpty()) ranges[index % ranges.size] else "6000-19999"
-                    val configContent = """{"server":"${config.ip}:$currentRange","obfs":"${config.obfs}","auth":"${config.pass}","socks5":{"listen":"127.0.0.1:$port"},"insecure":true,"recvwindowconn":131072,"recvwindow":327680}"""
+                    val configContent = """{"server":"${config.ip}:$currentRange","obfs":"${config.obfs}","auth":"${config.pass}","socks5":{"listen":"127.0.0.1:$port"},"insecure":true,"recvwindowconn":$dynamicConn,"recvwindow":$dynamicWin}"""
                     
                     // Use ProcessBuilder with custom environment to prevent inheritance issues
                     val pb = ProcessBuilder(libUz, "-s", config.obfs, "--config", configContent)
