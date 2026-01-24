@@ -159,10 +159,13 @@ class AutoPilotService {
         }
       }
 
+      // --- TRICK: Strengthen Background Resilience ---
+      await _strengthenBackground();
+
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.running,
         failCount: 0,
-        message: 'AutoPilot service started successfully',
+        message: 'AutoPilot service started (High Priority)',
       ));
 
       _timer = Timer.periodic(
@@ -177,6 +180,33 @@ class AutoPilotService {
         message: 'Failed to start: $e',
       ));
       rethrow;
+    }
+  }
+
+  /// Trik Shizuku: Memaksa Android untuk tidak mematikan aplikasi ini (Anti-DeepSleep)
+  Future<void> _strengthenBackground() async {
+    try {
+      const pkg = 'com.follow.clash'; 
+      // 1. Whitelist dari Doze Mode (Setara dengan Battery Optimization: Unrestricted)
+      await _shizuku.runCommand('cmd deviceidle whitelist +$pkg');
+      
+      // 2. Paksa Permission RUN_IN_BACKGROUND (Penting untuk ROM China/Custom)
+      await _shizuku.runCommand('cmd appops set $pkg RUN_IN_BACKGROUND allow');
+      
+      // 3. (Opsional) Paksa RUN_ANY_IN_BACKGROUND
+      await _shizuku.runCommand('cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow');
+
+      // 4. Paksa status "Active" (Mencegah App Standby Buckets menurunkan prioritas)
+      //    Memberitahu OS bahwa aplikasi ini sedang aktif digunakan user
+      await _shizuku.runCommand('am set-inactive $pkg false');
+      
+      // 5. Paksa masuk ke Bucket "Active" (Level 10 - Prioritas Tertinggi)
+      //    Aplikasi di bucket ini mendapatkan akses jaringan/CPU tanpa batas
+      await _shizuku.runCommand('am set-standby-bucket $pkg active');
+      
+      print('[_strengthenBackground] App elevated to High Priority via Shizuku');
+    } catch (e) {
+      print('[_strengthenBackground] Warning: $e');
     }
   }
 
