@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fl_clash/autopilot/auto_pilot_service_configurable.dart'; // Added Import
+
 import 'controller.dart';
 import 'pages/pages.dart';
 
@@ -23,7 +25,7 @@ class Application extends ConsumerStatefulWidget {
   ConsumerState<Application> createState() => ApplicationState();
 }
 
-class ApplicationState extends ConsumerState<Application> {
+class ApplicationState extends ConsumerState<Application> with WidgetsBindingObserver {
   Timer? _autoUpdateProfilesTaskTimer;
 
   final _pageTransitionsTheme = const PageTransitionsTheme(
@@ -45,6 +47,7 @@ class ApplicationState extends ConsumerState<Application> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _autoUpdateProfilesTask();
     globalState.appController = AppController(context, ref);
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
@@ -56,6 +59,17 @@ class ApplicationState extends ConsumerState<Application> {
       globalState.appController.initLink();
       app?.initShortcuts();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      AutoPilotService().onAppResume();
+      // Try to refresh core status if needed
+      if (globalState.isStart) {
+         globalState.appController.updateStatus(true);
+      }
+    }
   }
 
   void _autoUpdateProfilesTask() {
@@ -160,6 +174,7 @@ class ApplicationState extends ConsumerState<Application> {
 
   @override
   Future<void> dispose() async {
+    WidgetsBinding.instance.removeObserver(this);
     linkManager.destroy();
     _autoUpdateProfilesTaskTimer?.cancel();
     await coreController.destroy();

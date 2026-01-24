@@ -283,4 +283,20 @@ class AutoPilotService {
     _timer?.cancel();
     _stateController.close();
   }
+
+  /// Call this when app comes to foreground
+  void onAppResume() {
+    if (isRunning && (_timer == null || !_timer!.isActive)) {
+        // Restart timer if it was killed by OS but service should be running
+        _timer?.cancel();
+        _timer = Timer.periodic(
+          Duration(seconds: _config.checkIntervalSeconds),
+          (timer) async {
+            await _checkAndRecover();
+          },
+        );
+        // Do an immediate check
+        _checkAndRecover();
+    }
+  }
 }
