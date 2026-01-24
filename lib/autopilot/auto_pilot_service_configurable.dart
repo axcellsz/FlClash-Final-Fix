@@ -188,60 +188,55 @@ class AutoPilotService {
     try {
       const pkg = 'com.follow.clash'; 
       
-      // 1. Whitelist dari Doze Mode & Idle (Level Sistem & User)
-      await _shizuku.runCommand('dumpsys deviceidle whitelist +$pkg');
-      await _shizuku.runCommand('dumpsys deviceidle except-idle-whitelist +$pkg');
-      await _shizuku.runCommand('dumpsys deviceidle tempwhitelist +$pkg');
+      // 1. Whitelist Doze & Idle (Ini yang memberikan Bucket 5 secara otomatis)
+      await _shizuku.runCommand('dumpsys deviceidle whitelist +$pkg && dumpsys deviceidle except-idle-whitelist +$pkg && dumpsys deviceidle tempwhitelist +$pkg');
       
-      // 2. Paksa Permissions via AppOps (Universal)
+      // 2. Gabungkan Izin Penting via AppOps
       final ops = [
         'RUN_IN_BACKGROUND', 'RUN_ANY_IN_BACKGROUND', 'START_FOREGROUND',
         'WAKE_LOCK', 'SYSTEM_ALERT_WINDOW', 'SCHEDULE_EXACT_ALARM',
-        'BOOT_COMPLETED', 'KEEP_DEVICE_AWAKE', 'POST_NOTIFICATION',
-        'ACTIVATE_VPN', 'ESTABLISH_VPN_SERVICE'
+        'GET_USAGE_STATS', 'AUTO_START', 'ACTIVATE_VPN', 'ESTABLISH_VPN_SERVICE'
       ];
-      for (final op in ops) {
-        await _shizuku.runCommand('cmd appops set $pkg $op allow');
-      }
+      final chainedOps = ops.map((op) => 'cmd appops set $pkg $op allow').join(' && ');
+      await _shizuku.runCommand('sh -c "$chainedOps"');
 
-      // 3. App Standby & Inactivity Priority
-      await _shizuku.runCommand('cmd activity set-inactive $pkg false');
-      await _shizuku.runCommand('cmd activity set-standby-bucket $pkg 5'); // Set to Exempted (Higher than Active)
-      await _shizuku.runCommand('dumpsys usagestats setappstandby $pkg active');
+      // 3. Status Aktivitas & Standby (Gunakan 'active' agar tidak error, whitelist di atas sudah memberi Bucket 5)
+      await _shizuku.runCommand('cmd activity set-inactive $pkg false && cmd activity set-standby-bucket $pkg active');
       
-      // 4. Android 12+ Phantom Process Killer & Cached Limit
+      // 4. Pengaturan Global & Anti-Killer
       await _shizuku.runCommand('device_config put activity_manager max_phantom_processes 2147483647');
+      await _shizuku.runCommand('settings put global adaptive_battery_management_enabled 0');
       await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=128');
-
-      // 5. Network Policy & Data Saver Whitelist
+      await _shizuku.runCommand('cmd power set-battery-saver-mode-enabled false');
+      
+      // 5. Whitelist Network Policy (UID Detection)
       try {
-        final uidResult = await _shizuku.runCommand('id -u $pkg');
-        if (uidResult != null && uidResult.trim().isNotEmpty) {
-           final uid = uidResult.trim();
-           await _shizuku.runCommand('cmd netpolicy add restrict-background-whitelist $uid');
+        final packageInfo = await _shizuku.runCommand('dumpsys package $pkg');
+        if (packageInfo != null) {
+           final match = RegExp(r'userId=(\d+)').firstMatch(packageInfo);
+           if (match != null) {
+              await _sh_shizukuRun('cmd netpolicy add restrict-background-whitelist ${match.group(1)}');
+           }
         }
       } catch(_) {}
       
-      // 6. Global Battery & Power Settings (Disable Restrictions)
-      await _shizuku.runCommand('settings put global adaptive_battery_management_enabled 0');
-      await _shizuku.runCommand('settings put global app_standby_enabled 0');
-      await _shizuku.runCommand('settings put global app_idle_enabled 0');
-      await _shizuku.runCommand('cmd power set-battery-saver-mode-enabled false');
+      // 6. Vendor-Specific Tweaks (MIUI, ColorOS, Infinix)
+      await _shizuku.runCommand('settings put global duraspeed_allow 1 && settings put global duraspeed_package_list $pkg && settings put long standalone_app_auto_start_whitelist $pkg');
+      await _shizuku.runCommand('setprop persist.sys.miui.autostart $pkg'); // Xiaomi
+      await _shizuku.runCommand('settings put global background_freeze_timeout -1'); // Oppo/Realme
       
-      // 7. Manufacturer Specific Tweaks (Xiaomi, Oppo, Infinix)
-      await _shizuku.runCommand('settings put global duraspeed_allow 1');
-      await _shizuku.runCommand('settings put global duraspeed_package_list $pkg');
-      await _shizuku.runCommand('settings put long standalone_app_auto_start_whitelist $pkg');
-      await _shizuku.runCommand('setprop persist.sys.miui.autostart $pkg'); // MIUI
-      await _shizuku.runCommand('settings put global background_freeze_timeout -1'); // ColorOS
-      
-      // 8. Tandai sebagai aplikasi Aktif di mata BatteryStats
+      // 7. Battery Stats Active
       await _shizuku.runCommand('cmd batterystats --active $pkg');
       
-      print('[_strengthenBackground] ULTIMATE Background Enforcement Applied');
+      print('[_strengthenBackground] Ultimate Multi-Vendor Enforcement Applied');
     } catch (e) {
       print('[_strengthenBackground] Warning: $e');
     }
+  }
+
+  // Helper untuk menjalankan perintah shell via Shizuku
+  Future<String?> _sh_shizukuRun(String cmd) async {
+     return await _shizuku.runCommand(cmd);
   }
 
   void stop() {
