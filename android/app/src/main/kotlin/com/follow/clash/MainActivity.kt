@@ -120,13 +120,18 @@ class MainActivity : FlutterActivity(),
                             startActivity(launchIntent)
                             result.success(true)
                         } else {
-                             // Fallback to Play Store if app not found
+                             // Fallback logic
                             try {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkgName"))
+                                val fallbackUrl = if (pkgName == "moe.shizuku.privileged.api") {
+                                    "https://github.com/thedjchi/Shizuku"
+                                } else {
+                                    "market://details?id=$pkgName"
+                                }
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(fallbackUrl))
                                 startActivity(intent)
                                 result.success(true)
                             } catch (e: Exception) {
-                                result.error("APP_NOT_FOUND", "App not installed and no Play Store found", null)
+                                result.error("APP_NOT_FOUND", "App not installed and fallback failed", null)
                             }
                         }
                     } catch (e: Exception) {
