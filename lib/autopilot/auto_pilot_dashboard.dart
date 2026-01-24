@@ -116,9 +116,8 @@ class _AutoPilotDashboardState extends State<AutoPilotDashboard> {
               Text(
                 state.message!,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.8),
                 ),
               ),
             ],
@@ -126,9 +125,8 @@ class _AutoPilotDashboardState extends State<AutoPilotDashboard> {
               const SizedBox(height: 12),
               Text(
                 'Last check: ${_formatTime(state.lastCheck!)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade500,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).textTheme.labelSmall?.color?.withOpacity(0.6),
                 ),
               ),
             ],
@@ -289,25 +287,25 @@ class _AutoPilotDashboardState extends State<AutoPilotDashboard> {
   }
 
   Widget _buildConfigItem(String label, String value, IconData icon) {
+    final textTheme = Theme.of(context).textTheme;
+    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey.shade600),
+          Icon(icon, size: 20, color: textTheme.bodyMedium?.color?.withOpacity(0.7)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
+              style: textTheme.bodyMedium?.copyWith(
+                color: textTheme.bodyMedium?.color?.withOpacity(0.9),
               ),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
+            style: textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),

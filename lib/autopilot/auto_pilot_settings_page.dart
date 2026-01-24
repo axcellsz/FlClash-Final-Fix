@@ -276,6 +276,9 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
     required String unit,
     required ValueChanged<double> onChanged,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -288,17 +291,15 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: textTheme.bodySmall?.color?.withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -307,7 +308,7 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: colorScheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -315,7 +316,7 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
+                  color: colorScheme.primary,
                 ),
               ),
             ),
@@ -334,23 +335,23 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
   }
 
   Widget _buildSummaryItem(String label, String value, IconData icon) {
+    final textTheme = Theme.of(context).textTheme;
+    
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.grey.shade600),
+        Icon(icon, size: 20, color: textTheme.bodyMedium?.color?.withOpacity(0.7)),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade700,
+            style: textTheme.bodyMedium?.copyWith(
+               color: textTheme.bodyMedium?.color?.withOpacity(0.9),
             ),
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 14,
+          style: textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
