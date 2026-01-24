@@ -204,24 +204,37 @@ class AutoPilotService {
       // 4. Disable Phantom Process Killer (Android 12+) - Mencegah libuz di-kill
       await _shizuku.runCommand('device_config put activity_manager max_phantom_processes 2147483647');
 
-      // 5. Network Policy (Data Saver Whitelist) - Membutuhkan UID
+      // 5. (OLD WORK) Matikan Adaptive Battery & Longgarkan Activity Manager
+      await _shizuku.runCommand('settings put global adaptive_battery_management_enabled 0');
+      await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=128');
+
+      // 6. Network Policy (Data Saver Whitelist) - Membutuhkan UID
       try {
         final uidResult = await _shizuku.runCommand('id -u $pkg');
         if (uidResult != null && uidResult.trim().isNotEmpty) {
            final uid = uidResult.trim();
            await _shizuku.runCommand('cmd netpolicy add restrict-background-whitelist $uid');
+           
+           // 7. (CRITICAL) Mencoba paksa OOM Score via Shizuku (Jika OS mengizinkan ADB write ke proc)
+           try {
+              final pidResult = await _shizuku.runCommand('pidof $pkg');
+              if (pidResult != null && pidResult.trim().isNotEmpty) {
+                 final pid = pidResult.trim();
+                 await _shizuku.runCommand('echo -1000 > /proc/$pid/oom_score_adj');
+              }
+           } catch(_) {}
         }
       } catch(_) {}
       
-      // 6. Bypass DuraSpeed & Auto-Start Whitelist (Khusus MediaTek/Infinix)
+      // 8. Bypass DuraSpeed & Auto-Start Whitelist (Khusus MediaTek/Infinix)
       await _shizuku.runCommand('settings put global duraspeed_allow 1');
       await _shizuku.runCommand('settings put global duraspeed_package_list $pkg');
       await _shizuku.runCommand('settings put long standalone_app_auto_start_whitelist $pkg');
       
-      // 7. Tandai sebagai aplikasi Aktif di mata BatteryStats
+      // 9. Tandai sebagai aplikasi Aktif di mata BatteryStats
       await _shizuku.runCommand('cmd batterystats --active $pkg');
       
-      print('[_strengthenBackground] All-In-One Background Enforcement Applied');
+      print('[_strengthenBackground] Full Enforcement Applied (Old Work + New Essentials)');
     } catch (e) {
       print('[_strengthenBackground] Warning: $e');
     }
