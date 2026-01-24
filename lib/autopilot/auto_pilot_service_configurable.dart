@@ -203,7 +203,11 @@ class AutoPilotService {
       await _shizuku.runCommand('settings put global duraspeed_package_list $pkg');
       await _shizuku.runCommand('settings put long standalone_app_auto_start_whitelist $pkg');
       
-      // 5. Tandai sebagai aplikasi Aktif di mata BatteryStats
+      // 5. Matikan Adaptive Battery & Longgarkan Activity Manager
+      await _shizuku.runCommand('settings put global adaptive_battery_management_enabled 0');
+      await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=128');
+      
+      // 6. Tandai sebagai aplikasi Aktif di mata BatteryStats
       await _shizuku.runCommand('cmd batterystats --active $pkg');
       
       print('[_strengthenBackground] Shizuku Priority Applied (Bucket 5/10 + Whitelist)');
