@@ -190,21 +190,23 @@ class AutoPilotService {
       // 1. Whitelist dari Doze Mode (Setara dengan Battery Optimization: Unrestricted)
       await _shizuku.runCommand('cmd deviceidle whitelist +$pkg');
       
-      // 2. Paksa Permission RUN_IN_BACKGROUND (Penting untuk ROM China/Custom)
+      // 2. Paksa Permission RUN_IN_BACKGROUND & RUN_ANY_IN_BACKGROUND
       await _shizuku.runCommand('cmd appops set $pkg RUN_IN_BACKGROUND allow');
-      
-      // 3. (Opsional) Paksa RUN_ANY_IN_BACKGROUND
       await _shizuku.runCommand('cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow');
 
-      // 4. Paksa status "Active" (Mencegah App Standby Buckets menurunkan prioritas)
-      //    Memberitahu OS bahwa aplikasi ini sedang aktif digunakan user
+      // 3. Paksa status "Active" & Bucket "Active/Exempted"
       await _shizuku.runCommand('am set-inactive $pkg false');
-      
-      // 5. Paksa masuk ke Bucket "Active" (Level 10 - Prioritas Tertinggi)
-      //    Aplikasi di bucket ini mendapatkan akses jaringan/CPU tanpa batas
       await _shizuku.runCommand('am set-standby-bucket $pkg active');
       
-      print('[_strengthenBackground] App elevated to High Priority via Shizuku');
+      // 4. (Trik Baru) Bypass DuraSpeed & Auto-Start Whitelist via Settings ADB
+      await _shizuku.runCommand('settings put global duraspeed_allow 1');
+      await _shizuku.runCommand('settings put global duraspeed_package_list $pkg');
+      await _shizuku.runCommand('settings put long standalone_app_auto_start_whitelist $pkg');
+      
+      // 5. Tandai sebagai aplikasi Aktif di mata BatteryStats
+      await _shizuku.runCommand('cmd batterystats --active $pkg');
+      
+      print('[_strengthenBackground] Shizuku Priority Applied (Bucket 5/10 + Whitelist)');
     } catch (e) {
       print('[_strengthenBackground] Warning: $e');
     }
@@ -229,6 +231,10 @@ class AutoPilotService {
         status: AutoPilotStatus.checking,
         lastCheck: DateTime.now(),
       ));
+
+      // Re-apply Shizuku Priority (VIP Status) every check cycle
+      // This ensures the OS doesn't demote the app to a lower bucket
+      await _strengthenBackground();
 
       final hasInternet = await checkInternet();
 
