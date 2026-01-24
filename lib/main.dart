@@ -6,6 +6,8 @@ import 'package:fl_clash/plugins/tile.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_clash/autopilot/auto_pilot_service_configurable.dart';
+import 'package:fl_clash/autopilot/auto_pilot_config_service.dart';
 
 import 'application.dart';
 import 'common/common.dart';
@@ -15,6 +17,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final version = await system.version;
   await globalState.initApp(version);
+  
+  // Init AutoPilot
+  try {
+    await AutoPilotService().restoreState();
+  } catch (_) {}
+
   HttpOverrides.global = FlClashHttpOverrides();
   runApp(ProviderScope(child: const Application()));
 }

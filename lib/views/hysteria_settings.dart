@@ -7,7 +7,7 @@ import 'package:fl_clash/common/path.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:fl_clash/services/auto_pilot_service.dart';
+import 'package:fl_clash/autopilot/auto_pilot_dashboard.dart';
 
 class HysteriaSettingsPage extends StatefulWidget {
   const HysteriaSettingsPage({super.key});
@@ -25,8 +25,6 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
   final TextEditingController _mtuController = TextEditingController();
   bool _enableKeepAlive = true;
   bool _autoBoot = false;
-  bool _autoReset = false;
-  double _resetTimeout = 15.0;
   
   @override
   void initState() {
@@ -37,8 +35,6 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
     _portRangeController.text = "6000-19999";
     _mtuController.text = "9000";
     
-    _autoReset = AutoPilotService().isRunning;
-
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardForConfig());
   }
 
@@ -99,8 +95,6 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
       "port_range": portRange,
       "mtu": mtu,
       "auto_boot": _autoBoot,
-      "auto_reset": _autoReset,
-      "reset_timeout": _resetTimeout.toInt()
     };
     final metadataString = jsonEncode(metadata);
 
@@ -292,8 +286,6 @@ $dnsConfig
         _obfsController.text = jsonMap['obfs']?.toString() ?? "";
         _portRangeController.text = jsonMap['port_range']?.toString() ?? "";
         _mtuController.text = jsonMap['mtu']?.toString() ?? "9000";
-        
-        if (jsonMap.containsKey('auto_reset')) _autoReset = jsonMap['auto_reset'] == true;
       });
     } catch (_) {}
   }
@@ -356,28 +348,23 @@ $dnsConfig
                 onChanged: (bool value) => setState(() => _autoBoot = value),
               ),
               const Divider(),
-              SwitchListTile(
+              ListTile(
                 title: const Row(
                   children: [
                     Icon(Icons.bolt, color: Colors.amber),
                     SizedBox(width: 8),
-                    Text('Auto-Pilot (Shizuku)'),
+                    Text('Auto-Pilot Dashboard'),
                   ],
                 ),
-                subtitle: const Text('Auto-reset connection via Shizuku.', style: TextStyle(color: Colors.blueAccent, fontSize: 11)),
-                value: _autoReset,
-                onChanged: (bool value) async {
-                  setState(() => _autoReset = value);
-                  if (value) {
-                    try {
-                      await AutoPilotService().start();
-                    } catch (e) {
-                      setState(() => _autoReset = false);
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
-                  } else {
-                    AutoPilotService().stop();
-                  }
+                subtitle: const Text(
+                  'Advanced Connection Recovery & Monitoring via Shizuku.',
+                  style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => const AutoPilotDashboard(),
+                  ));
                 },
               ),
               const SizedBox(height: 20),
