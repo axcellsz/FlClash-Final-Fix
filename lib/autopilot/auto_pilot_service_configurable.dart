@@ -187,30 +187,41 @@ class AutoPilotService {
   Future<void> _strengthenBackground() async {
     try {
       const pkg = 'com.follow.clash'; 
-      // 1. Whitelist dari Doze Mode (Setara dengan Battery Optimization: Unrestricted)
-      await _shizuku.runCommand('cmd deviceidle whitelist +$pkg');
+      
+      // 1. Whitelist dari Doze Mode & Idle (Level Sistem & User)
+      await _shizuku.runCommand('dumpsys deviceidle whitelist +$pkg');
+      await _shizuku.runCommand('dumpsys deviceidle except-idle-whitelist +$pkg');
       
       // 2. Paksa Permission RUN_IN_BACKGROUND & RUN_ANY_IN_BACKGROUND
       await _shizuku.runCommand('cmd appops set $pkg RUN_IN_BACKGROUND allow');
       await _shizuku.runCommand('cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow');
+      await _shizuku.runCommand('cmd appops set $pkg START_FOREGROUND allow');
 
-      // 3. Paksa status "Active" & Bucket "Active/Exempted"
-      await _shizuku.runCommand('am set-inactive $pkg false');
-      await _shizuku.runCommand('am set-standby-bucket $pkg active');
+      // 3. Paksa status "Active" & Bucket "Exempted" (Bucket 5)
+      await _shizuku.runCommand('cmd activity set-inactive $pkg false');
+      await _shizuku.runCommand('dumpsys usagestats setappstandby $pkg active');
       
-      // 4. (Trik Baru) Bypass DuraSpeed & Auto-Start Whitelist via Settings ADB
+      // 4. Disable Phantom Process Killer (Android 12+) - Mencegah libuz di-kill
+      await _shizuku.runCommand('device_config put activity_manager max_phantom_processes 2147483647');
+
+      // 5. Network Policy (Data Saver Whitelist) - Membutuhkan UID
+      try {
+        final uidResult = await _shizuku.runCommand('id -u $pkg');
+        if (uidResult != null && uidResult.trim().isNotEmpty) {
+           final uid = uidResult.trim();
+           await _shizuku.runCommand('cmd netpolicy add restrict-background-whitelist $uid');
+        }
+      } catch(_) {}
+      
+      // 6. Bypass DuraSpeed & Auto-Start Whitelist (Khusus MediaTek/Infinix)
       await _shizuku.runCommand('settings put global duraspeed_allow 1');
       await _shizuku.runCommand('settings put global duraspeed_package_list $pkg');
       await _shizuku.runCommand('settings put long standalone_app_auto_start_whitelist $pkg');
       
-      // 5. Matikan Adaptive Battery & Longgarkan Activity Manager
-      await _shizuku.runCommand('settings put global adaptive_battery_management_enabled 0');
-      await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=128');
-      
-      // 6. Tandai sebagai aplikasi Aktif di mata BatteryStats
+      // 7. Tandai sebagai aplikasi Aktif di mata BatteryStats
       await _shizuku.runCommand('cmd batterystats --active $pkg');
       
-      print('[_strengthenBackground] Shizuku Priority Applied (Bucket 5/10 + Whitelist)');
+      print('[_strengthenBackground] All-In-One Background Enforcement Applied');
     } catch (e) {
       print('[_strengthenBackground] Warning: $e');
     }
