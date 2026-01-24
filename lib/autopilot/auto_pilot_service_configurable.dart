@@ -206,12 +206,12 @@ class AutoPilotService {
 
       // 3. App Standby & Inactivity Priority
       await _shizuku.runCommand('cmd activity set-inactive $pkg false');
-      await _shizuku.runCommand('cmd activity set-standby-bucket $pkg 10'); // Set to Active
+      await _shizuku.runCommand('cmd activity set-standby-bucket $pkg 5'); // Set to Exempted (Higher than Active)
       await _shizuku.runCommand('dumpsys usagestats setappstandby $pkg active');
       
       // 4. Android 12+ Phantom Process Killer & Cached Limit
       await _shizuku.runCommand('device_config put activity_manager max_phantom_processes 2147483647');
-      await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=256');
+      await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=128');
 
       // 5. Network Policy & Data Saver Whitelist
       try {
