@@ -69,23 +69,21 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
       color: Colors.blue.shade50,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Configure AutoPilot monitoring and recovery behavior',
-                  style: TextStyle(
-                    color: Colors.blue.shade900,
-                    fontWeight: FontWeight.w500,
-                  ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue.shade700),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Configure AutoPilot monitoring and recovery behavior',
+                style: TextStyle(
+                  color: Colors.blue.shade900,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
