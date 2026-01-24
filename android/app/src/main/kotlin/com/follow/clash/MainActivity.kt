@@ -111,6 +111,30 @@ class MainActivity : FlutterActivity(),
                 } else {
                     result.success(false)
                 }
+            } else if (call.method == "launch_app") {
+                val pkgName = call.argument<String>("package_name")
+                if (pkgName != null) {
+                    try {
+                        val launchIntent = packageManager.getLaunchIntentForPackage(pkgName)
+                        if (launchIntent != null) {
+                            startActivity(launchIntent)
+                            result.success(true)
+                        } else {
+                             // Fallback to Play Store if app not found
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkgName"))
+                                startActivity(intent)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("APP_NOT_FOUND", "App not installed and no Play Store found", null)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        result.error("LAUNCH_ERR", e.message, null)
+                    }
+                } else {
+                    result.error("INVALID_ARGS", "Package name is null", null)
+                }
             } else {
                 result.notImplemented()
             }

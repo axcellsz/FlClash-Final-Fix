@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'auto_pilot_service_configurable.dart';
 import 'auto_pilot_settings_page.dart';
 import 'auto_pilot_config_service.dart';
@@ -332,13 +333,112 @@ class _AutoPilotDashboardState extends State<AutoPilotDashboard> {
       await _service.startAndSave();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to start: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      
+      final errorMsg = e.toString();
+      if (errorMsg.contains('Shizuku')) {
+        _showShizukuTutorial();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start: $errorMsg'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  void _showShizukuTutorial() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.adb, color: Colors.green),
+            SizedBox(width: 10),
+            Text('Setup Shizuku'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Shizuku service is not running or permission denied. Follow these steps to activate it via Wireless Debugging:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              _buildStep(1, 'Enable Developer Options', 'Settings > About Phone > Tap "Build Number" 7 times.'),
+              _buildStep(2, 'Enable Wireless Debugging', 'Settings > System > Developer Options > Enable "Wireless Debugging".'),
+              _buildStep(3, 'Pair Shizuku', 'Open Shizuku App > Pairing > Notification Options > Allow Notifications.'),
+              _buildStep(4, 'Get Code', 'Go to Wireless Debugging settings > Tap "Pair device with pairing code".'),
+              _buildStep(5, 'Enter Code', 'Enter the 6-digit Wi-Fi pairing code into the Shizuku notification.'),
+              _buildStep(6, 'Start Service', 'Return to Shizuku and tap "Start".'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber),
+                ),
+                child: const Text(
+                  'Note: You need to be connected to a Wi-Fi network to use Wireless Debugging.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+             onPressed: () async {
+                const platform = MethodChannel('com.follow.clash/hysteria');
+                try {
+                  await platform.invokeMethod('launch_app', {'package_name': 'moe.shizuku.privileged.api'});
+                } catch (e) {
+                  // Fallback or ignore
+                }
+             },
+             child: const Text('Open Shizuku'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep(int index, String title, String desc) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 10,
+            backgroundColor: Theme.of(context).primaryColor,
+            child: Text(
+              '$index',
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _stopService() {
