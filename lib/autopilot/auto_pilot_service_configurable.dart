@@ -191,50 +191,54 @@ class AutoPilotService {
       // 1. Whitelist dari Doze Mode & Idle (Level Sistem & User)
       await _shizuku.runCommand('dumpsys deviceidle whitelist +$pkg');
       await _shizuku.runCommand('dumpsys deviceidle except-idle-whitelist +$pkg');
+      await _shizuku.runCommand('dumpsys deviceidle tempwhitelist +$pkg');
       
-      // 2. Paksa Permission RUN_IN_BACKGROUND & RUN_ANY_IN_BACKGROUND
-      await _shizuku.runCommand('cmd appops set $pkg RUN_IN_BACKGROUND allow');
-      await _shizuku.runCommand('cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow');
-      await _shizuku.runCommand('cmd appops set $pkg START_FOREGROUND allow');
+      // 2. Paksa Permissions via AppOps (Universal)
+      final ops = [
+        'RUN_IN_BACKGROUND', 'RUN_ANY_IN_BACKGROUND', 'START_FOREGROUND',
+        'WAKE_LOCK', 'SYSTEM_ALERT_WINDOW', 'SCHEDULE_EXACT_ALARM',
+        'BOOT_COMPLETED', 'KEEP_DEVICE_AWAKE', 'POST_NOTIFICATION',
+        'ACTIVATE_VPN', 'ESTABLISH_VPN_SERVICE'
+      ];
+      for (final op in ops) {
+        await _shizuku.runCommand('cmd appops set $pkg $op allow');
+      }
 
-      // 3. Paksa status "Active" & Bucket "Exempted" (Bucket 5)
+      // 3. App Standby & Inactivity Priority
       await _shizuku.runCommand('cmd activity set-inactive $pkg false');
+      await _shizuku.runCommand('cmd activity set-standby-bucket $pkg 10'); // Set to Active
       await _shizuku.runCommand('dumpsys usagestats setappstandby $pkg active');
       
-      // 4. Disable Phantom Process Killer (Android 12+) - Mencegah libuz di-kill
+      // 4. Android 12+ Phantom Process Killer & Cached Limit
       await _shizuku.runCommand('device_config put activity_manager max_phantom_processes 2147483647');
+      await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=256');
 
-      // 5. (OLD WORK) Matikan Adaptive Battery & Longgarkan Activity Manager
-      await _shizuku.runCommand('settings put global adaptive_battery_management_enabled 0');
-      await _shizuku.runCommand('settings put global activity_manager_constants max_cached_processes=128');
-
-      // 6. Network Policy (Data Saver Whitelist) - Membutuhkan UID
+      // 5. Network Policy & Data Saver Whitelist
       try {
         final uidResult = await _shizuku.runCommand('id -u $pkg');
         if (uidResult != null && uidResult.trim().isNotEmpty) {
            final uid = uidResult.trim();
            await _shizuku.runCommand('cmd netpolicy add restrict-background-whitelist $uid');
-           
-           // 7. (CRITICAL) Mencoba paksa OOM Score via Shizuku (Jika OS mengizinkan ADB write ke proc)
-           try {
-              final pidResult = await _shizuku.runCommand('pidof $pkg');
-              if (pidResult != null && pidResult.trim().isNotEmpty) {
-                 final pid = pidResult.trim();
-                 await _shizuku.runCommand('echo -1000 > /proc/$pid/oom_score_adj');
-              }
-           } catch(_) {}
         }
       } catch(_) {}
       
-      // 8. Bypass DuraSpeed & Auto-Start Whitelist (Khusus MediaTek/Infinix)
+      // 6. Global Battery & Power Settings (Disable Restrictions)
+      await _shizuku.runCommand('settings put global adaptive_battery_management_enabled 0');
+      await _shizuku.runCommand('settings put global app_standby_enabled 0');
+      await _shizuku.runCommand('settings put global app_idle_enabled 0');
+      await _shizuku.runCommand('cmd power set-battery-saver-mode-enabled false');
+      
+      // 7. Manufacturer Specific Tweaks (Xiaomi, Oppo, Infinix)
       await _shizuku.runCommand('settings put global duraspeed_allow 1');
       await _shizuku.runCommand('settings put global duraspeed_package_list $pkg');
       await _shizuku.runCommand('settings put long standalone_app_auto_start_whitelist $pkg');
+      await _shizuku.runCommand('setprop persist.sys.miui.autostart $pkg'); // MIUI
+      await _shizuku.runCommand('settings put global background_freeze_timeout -1'); // ColorOS
       
-      // 9. Tandai sebagai aplikasi Aktif di mata BatteryStats
+      // 8. Tandai sebagai aplikasi Aktif di mata BatteryStats
       await _shizuku.runCommand('cmd batterystats --active $pkg');
       
-      print('[_strengthenBackground] Full Enforcement Applied (Old Work + New Essentials)');
+      print('[_strengthenBackground] ULTIMATE Background Enforcement Applied');
     } catch (e) {
       print('[_strengthenBackground] Warning: $e');
     }
