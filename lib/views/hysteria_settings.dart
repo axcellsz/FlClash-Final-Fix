@@ -47,6 +47,38 @@ class _HysteriaSettingsPageState extends State<HysteriaSettingsPage> {
     // For now, let's keep it simple.
   }
 
+  Future<void> _checkClipboardForConfig() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text == null || data!.text!.isEmpty) return;
+
+      var text = data.text!.trim();
+      if (text.contains('{') && text.contains('}')) {
+        final startIndex = text.indexOf('{');
+        final endIndex = text.lastIndexOf('}');
+        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+           text = text.substring(startIndex, endIndex + 1);
+        }
+      }
+
+      final jsonMap = jsonDecode(text);
+      if (jsonMap.containsKey('ip') && jsonMap.containsKey('pass') && jsonMap.containsKey('port_range')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Hysteria config detected in clipboard!'),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'IMPORT',
+                onPressed: _importFromClipboard,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _saveProfile() async {
     final name = _profileNameController.text.trim();
     final host = _ipController.text.trim();
