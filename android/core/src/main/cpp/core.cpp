@@ -70,6 +70,73 @@ Java_com_follow_clash_core_Core_suspended(JNIEnv *env, jobject thiz, jboolean su
     suspend(suspended);
 }
 
+// --- ADDED: ZIVPN Turbo Native Launcher ---
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <vector>
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_follow_clash_core_Core_startZivpnTun(JNIEnv *env, jobject thiz, 
+                                              jstring binaryPath, 
+                                              jint fd, 
+                                              jstring address, 
+                                              jstring netmask, 
+                                              jstring socksServer, 
+                                              jstring udpgwAddr,
+                                              jstring dnsgwAddr) {
+    const char *binary_path_cstr = get_string(binaryPath);
+    const char *address_cstr = get_string(address);
+    const char *netmask_cstr = get_string(netmask);
+    const char *socks_server_cstr = get_string(socksServer);
+    const char *udpgw_cstr = get_string(udpgwAddr);
+    const char *dnsgw_cstr = get_string(dnsgwAddr);
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        char fd_str[16];
+        sprintf(fd_str, "%d", fd);
+
+        std::vector<char*> args;
+        args.push_back(strdup(binary_path_cstr));
+        
+        args.push_back(strdup("--tunfd"));
+        args.push_back(strdup(fd_str));
+        
+        args.push_back(strdup("--netif-ipaddr"));
+        args.push_back(strdup(address_cstr));
+        
+        args.push_back(strdup("--netif-netmask"));
+        args.push_back(strdup(netmask_cstr));
+        
+        args.push_back(strdup("--socks-server-addr"));
+        args.push_back(strdup(socks_server_cstr));
+
+        if (strlen(udpgw_cstr) > 0) {
+            args.push_back(strdup("--udpgw-remote-server-addr"));
+            args.push_back(strdup(udpgw_cstr));
+        }
+
+        if (strlen(dnsgw_cstr) > 0) {
+            args.push_back(strdup("--dnsgw"));
+            args.push_back(strdup(dnsgw_cstr));
+        }
+
+        args.push_back(strdup("--loglevel"));
+        args.push_back(strdup("notice"));
+
+        args.push_back(nullptr);
+
+        execv(binary_path_cstr, args.data());
+        _exit(127); // If execv fails
+    }
+    
+    return (jint)pid;
+}
+// ------------------------------------------
 
 static jmethodID m_tun_interface_protect;
 static jmethodID m_tun_interface_resolve_process;

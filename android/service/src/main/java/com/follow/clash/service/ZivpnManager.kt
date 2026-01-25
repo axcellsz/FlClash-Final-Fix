@@ -102,6 +102,73 @@ class ZivpnManager(
                     }
                 }
 
+                // --- UDPGW Implementation ---
+                delay(800)
+                val libUdpgw = File(nativeDir, "libudpgw.so").absolutePath
+                if (File(libUdpgw).exists()) {
+                    val udpgwArgs = listOf(
+                        libUdpgw,
+                        "--listen-addr", "127.0.0.1:7300",
+                        "--max-clients", "500",
+                        "--max-connections-for-client", "20",
+                        "--loglevel", "none"
+                    )
+                    val udpgwPb = ProcessBuilder(udpgwArgs)
+                    udpgwPb.environment()["LD_LIBRARY_PATH"] = nativeDir
+                    try {
+                        val udpgwProcess = udpgwPb.start()
+                        coreProcesses.add(udpgwProcess)
+                        startProcessLogger(udpgwProcess, "UDPGW")
+                        Log.i("FlClash", "UDPGW started on port 7300")
+                    } catch (e: Exception) {
+                        Log.e("FlClash", "Failed to start UDPGW: ${e.message}")
+                    }
+                }
+
+                // --- PDNSD Implementation (DNSGW) ---
+                delay(200)
+                val libPdnsd = File(nativeDir, "libpdnsd.so").absolutePath
+                val pdnsdConf = File(context.filesDir, "pdnsd.conf")
+                
+                if (!pdnsdConf.exists()) {
+                    // Create default config matching ZIVPN
+                    val confContent = """
+                        global {
+                            perm_cache=1024;
+                            cache_dir="${context.cacheDir.absolutePath}";
+                            server_ip = 169.254.1.1;
+                            server_port = 8091;
+                            query_method = tcp_only;
+                            min_ttl=15m;
+                            max_ttl=1w;
+                            timeout=10;
+                            daemon=off;
+                        }
+                        server {
+                            label= "GoogleDNS";
+                            ip = 8.8.8.8;
+                            uptest = none;
+                            proxy_only = on;
+                        }
+                    """.trimIndent()
+                    pdnsdConf.writeText(confContent)
+                }
+
+                if (File(libPdnsd).exists()) {
+                    val pdnsdArgs = listOf(libPdnsd, "-c", pdnsdConf.absolutePath, "-v2")
+                    val pdnsdPb = ProcessBuilder(pdnsdArgs)
+                    pdnsdPb.environment()["LD_LIBRARY_PATH"] = nativeDir
+                    try {
+                        val pdnsdProcess = pdnsdPb.start()
+                        coreProcesses.add(pdnsdProcess)
+                        startProcessLogger(pdnsdProcess, "PDNSD")
+                        Log.i("FlClash", "PDNSD started on port 8091")
+                    } catch (e: Exception) {
+                        Log.e("FlClash", "Failed to start PDNSD: ${e.message}")
+                    }
+                }
+                // ----------------------------------
+
                 startMonitor(config)
 
             } catch (e: Exception) {

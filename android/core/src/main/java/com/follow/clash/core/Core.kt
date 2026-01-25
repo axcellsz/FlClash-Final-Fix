@@ -104,6 +104,18 @@ data object Core {
 
     external fun stopTun()
 
+    // --- ZIVPN Turbo ---
+    external fun startZivpnTun(
+        binaryPath: String,
+        fd: Int,
+        address: String,
+        netmask: String,
+        socksServer: String,
+        udpgwAddr: String,
+        dnsgwAddr: String
+    ): Int
+    // -------------------
+
     external fun getTraffic(onlyStatisticsProxy: Boolean): String
 
     external fun getTotalTraffic(onlyStatisticsProxy: Boolean): String

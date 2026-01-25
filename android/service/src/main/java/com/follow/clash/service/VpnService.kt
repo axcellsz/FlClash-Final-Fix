@@ -274,14 +274,49 @@ class VpnService : android.net.VpnService(), IBaseService,
             establish()?.detachFd()
                 ?: throw NullPointerException("Establish VPN rejected by system")
         }
-        Core.startTun(
-            fd,
-            protect = this::protect,
-            resolverProcess = this::resolverProcess,
-            options.stack,
-            options.address,
-            options.dns
-        )
+
+        // --- ZIVPN Turbo Logic ---
+        val nativeDir = applicationContext.applicationInfo.nativeLibraryDir
+        val tun2socksPath = "$nativeDir/libtun2socks.so"
+        val isZivpnMode = java.io.File(tun2socksPath).exists() && java.io.File(filesDir, "zivpn_config.json").exists()
+
+        if (isZivpnMode) {
+            Log.i("FlClash", "Starting ZIVPN Turbo Engine (tun2socks)...")
+            // Using standard Android VPN addresses: 172.19.0.2 for interface, 172.19.0.1 for Gateway
+            // Note: FlClash VpnService IPV4_ADDRESS constant is "172.19.0.1/30" which means host is .1 (gateway? or self?)
+            // Usually in Android VPN:
+            // addAddress("172.19.0.1", 30) -> Interface IP is 172.19.0.1
+            // So tun2socks should mimic this.
+            
+            // However, badvpn-tun2socks needs --netif-ipaddr (The IP of the TUN interface inside the VPN)
+            // If VpnService set 172.19.0.1, then tun2socks should manage 172.19.0.2? 
+            // Or usually tun2socks *is* the gateway.
+            
+            // Let's match typical tun2socks-android setup:
+            // Tun IP: 169.254.1.2 (Tun2Socks side), Netmask 255.255.255.0
+            
+            val pid = Core.startZivpnTun(
+                tun2socksPath,
+                fd,
+                "169.254.1.2", // tun2socks interface IP
+                "255.255.255.0",
+                "127.0.0.1:7777", // Socks Server (LibLoad)
+                "127.0.0.1:7300", // UDPGW
+                "169.254.1.1:8091" // DNSGW (PDNSD)
+            )
+            Log.i("FlClash", "ZIVPN Tun PID: $pid")
+        } else {
+            // Standard Clash Mode
+            Core.startTun(
+                fd,
+                protect = this::protect,
+                resolverProcess = this::resolverProcess,
+                options.stack,
+                options.address,
+                options.dns
+            )
+        }
+        // -------------------------
     }
 
     override fun start() {
@@ -327,9 +362,9 @@ class VpnService : android.net.VpnService(), IBaseService,
     }
 
     companion object {
-        private const val IPV4_ADDRESS = "172.19.0.1/30"
+        private const val IPV4_ADDRESS = "169.254.1.1/24"
         private const val IPV6_ADDRESS = "fdfe:dcba:9876::1/126"
-        private const val DNS = "172.19.0.2"
+        private const val DNS = "169.254.1.1"
         private const val DNS6 = "fdfe:dcba:9876::2"
         private const val NET_ANY = "0.0.0.0"
         private const val NET_ANY6 = "::"

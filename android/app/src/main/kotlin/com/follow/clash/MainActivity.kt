@@ -93,6 +93,16 @@ class MainActivity : FlutterActivity(),
                 } catch (e: Exception) {
                     result.error("WRITE_ERR", "Failed to save config: ${e.message}", null)
                 }
+            } else if (call.method == "disable_turbo") {
+                try {
+                    val configFile = File(filesDir, "zivpn_config.json")
+                    if (configFile.exists()) {
+                        configFile.delete()
+                    }
+                    result.success("Turbo disabled")
+                } catch (e: Exception) {
+                    result.error("ERR", "Failed to disable turbo: ${e.message}", null)
+                }
             } else if (call.method == "request_battery") {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
