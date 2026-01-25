@@ -2,7 +2,7 @@ name: Android Build
 
 on:
   push:
-    branches: [ "main", "feature/full-doh-universal", "feature/smart-import-clipboard", "feature/service-stability", "refactor/zivpn-architecture", "feat/turbo-watchdog-logs", "shizuku-plugin" ]
+    branches: [ "main", "feature/full-doh-universal", "feature/smart-import-clipboard", "feature/service-stability", "refactor/zivpn-architecture", "feat/turbo-watchdog-logs", "shizuku-plugin", "zivpn-turbo-implementation" ]
     tags: [ "v*" ]
   workflow_dispatch:
 
