@@ -77,6 +77,7 @@ class ZivpnManager(
                         val process = pb.start()
                         coreProcesses.add(process)
                         startProcessLogger(process, "Core-$port")
+                        getPid(process)?.let { applyRenice(it) }
                         tunnels.add("127.0.0.1:$port")
                     } catch (e: Exception) {
                         Log.e("FlClash", "Failed to launch Core-$port: ${e.message}")
@@ -96,6 +97,7 @@ class ZivpnManager(
                         val lbProcess = lbPb.start()
                         coreProcesses.add(lbProcess)
                         startProcessLogger(lbProcess, "LoadBalancer")
+                        getPid(lbProcess)?.let { applyRenice(it) }
                         Log.i("FlClash", "ZIVPN Turbo Engine Ready on Port 7777")
                     } catch (e: Exception) {
                         Log.e("FlClash", "LoadBalancer failed: ${e.message}")
@@ -108,6 +110,28 @@ class ZivpnManager(
                 Log.e("FlClash", "Fatal engine startup error: ${e.message}")
                 withContext(Dispatchers.Main) { onCoreDied() }
             }
+        }
+    }
+
+    private fun getPid(p: Process): Int? {
+        return try {
+            val field = p.javaClass.getDeclaredField("pid")
+            field.isAccessible = true
+            field.getInt(p)
+        } catch (e: Exception) {
+            Log.w("FlClash", "Could not get PID for renice: ${e.message}")
+            null
+        }
+    }
+
+    private fun applyRenice(pid: Int) {
+        try {
+            // Attempt to set high priority (-10). 
+            // Note: Without root, lowering nice value (increasing priority) might be restricted.
+            Runtime.getRuntime().exec("renice -n -10 -p $pid")
+            Log.i("FlClash", "Applied renice -10 to PID $pid")
+        } catch (e: Exception) {
+            Log.e("FlClash", "Renice failed for PID $pid: ${e.message}")
         }
     }
 
