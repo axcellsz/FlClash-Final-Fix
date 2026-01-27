@@ -9,7 +9,9 @@ class AutoPilotConfig {
   final int maxFailCount;
   final int airplaneModeDelaySeconds;
   final int recoveryWaitSeconds;
-  final bool autoHealthCheck; // Added
+  final bool autoHealthCheck;
+  final bool enablePingStabilizer; // Added from lexpesawat
+  final int stabilizerSizeMb;      // Added from lexpesawat
 
   const AutoPilotConfig({
     this.checkIntervalSeconds = 15,
@@ -17,7 +19,9 @@ class AutoPilotConfig {
     this.maxFailCount = 3,
     this.airplaneModeDelaySeconds = 3,
     this.recoveryWaitSeconds = 10,
-    this.autoHealthCheck = true, // Added Default True
+    this.autoHealthCheck = true,
+    this.enablePingStabilizer = false, 
+    this.stabilizerSizeMb = 1,
   });
 
   AutoPilotConfig copyWith({
@@ -27,6 +31,8 @@ class AutoPilotConfig {
     int? airplaneModeDelaySeconds,
     int? recoveryWaitSeconds,
     bool? autoHealthCheck,
+    bool? enablePingStabilizer,
+    int? stabilizerSizeMb,
   }) {
     return AutoPilotConfig(
       checkIntervalSeconds: checkIntervalSeconds ?? this.checkIntervalSeconds,
@@ -35,6 +41,8 @@ class AutoPilotConfig {
       airplaneModeDelaySeconds: airplaneModeDelaySeconds ?? this.airplaneModeDelaySeconds,
       recoveryWaitSeconds: recoveryWaitSeconds ?? this.recoveryWaitSeconds,
       autoHealthCheck: autoHealthCheck ?? this.autoHealthCheck,
+      enablePingStabilizer: enablePingStabilizer ?? this.enablePingStabilizer,
+      stabilizerSizeMb: stabilizerSizeMb ?? this.stabilizerSizeMb,
     );
   }
 
@@ -46,6 +54,8 @@ class AutoPilotConfig {
       'airplaneModeDelaySeconds': airplaneModeDelaySeconds,
       'recoveryWaitSeconds': recoveryWaitSeconds,
       'autoHealthCheck': autoHealthCheck,
+      'enablePingStabilizer': enablePingStabilizer,
+      'stabilizerSizeMb': stabilizerSizeMb,
     };
   }
 
@@ -57,6 +67,8 @@ class AutoPilotConfig {
       airplaneModeDelaySeconds: json['airplaneModeDelaySeconds'] ?? 3,
       recoveryWaitSeconds: json['recoveryWaitSeconds'] ?? 10,
       autoHealthCheck: json['autoHealthCheck'] ?? true,
+      enablePingStabilizer: json['enablePingStabilizer'] ?? false,
+      stabilizerSizeMb: json['stabilizerSizeMb'] ?? 1,
     );
   }
 }
@@ -72,6 +84,7 @@ enum AutoPilotStatus {
 class AutoPilotState {
   final AutoPilotStatus status;
   final int failCount;
+  final int consecutiveResets; // Added logic
   final String? message;
   final DateTime? lastCheck;
   final bool hasInternet;
@@ -79,6 +92,7 @@ class AutoPilotState {
   const AutoPilotState({
     required this.status,
     required this.failCount,
+    this.consecutiveResets = 0,
     this.message,
     this.lastCheck,
     required this.hasInternet,
@@ -87,6 +101,7 @@ class AutoPilotState {
   AutoPilotState copyWith({
     AutoPilotStatus? status,
     int? failCount,
+    int? consecutiveResets,
     String? message,
     DateTime? lastCheck,
     bool? hasInternet,
@@ -94,6 +109,7 @@ class AutoPilotState {
     return AutoPilotState(
       status: status ?? this.status,
       failCount: failCount ?? this.failCount,
+      consecutiveResets: consecutiveResets ?? this.consecutiveResets,
       message: message ?? this.message,
       lastCheck: lastCheck ?? this.lastCheck,
       hasInternet: hasInternet ?? this.hasInternet,
@@ -114,9 +130,12 @@ class AutoPilotService {
   final _stateController = StreamController<AutoPilotState>.broadcast();
   Stream<AutoPilotState> get stateStream => _stateController.stream;
   
+  bool _isChecking = false;
+
   AutoPilotState _currentState = const AutoPilotState(
     status: AutoPilotStatus.stopped,
     failCount: 0,
+    consecutiveResets: 0,
     hasInternet: true,
   );
 
@@ -126,13 +145,10 @@ class AutoPilotService {
 
   void updateConfig(AutoPilotConfig newConfig) {
     final wasRunning = isRunning;
-    
     if (wasRunning) {
       stop();
     }
-    
     _config = newConfig;
-    
     if (wasRunning) {
       start();
     }
@@ -165,6 +181,7 @@ class AutoPilotService {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.running,
         failCount: 0,
+        consecutiveResets: 0,
         message: 'AutoPilot service started (High Priority)',
       ));
 
@@ -251,7 +268,8 @@ class AutoPilotService {
   }
 
   Future<void> _checkAndRecover() async {
-    if (!isRunning) return;
+    if (!isRunning || _isChecking) return;
+    _isChecking = true;
 
     try {
       _updateState(_currentState.copyWith(
@@ -260,7 +278,6 @@ class AutoPilotService {
       ));
 
       // Re-apply Shizuku Priority (VIP Status) every check cycle
-      // This ensures the OS doesn't demote the app to a lower bucket
       await _strengthenBackground();
 
       final hasInternet = await checkInternet();
@@ -271,10 +288,11 @@ class AutoPilotService {
            globalState.appController.autoHealthCheck();
         }
 
-        if (_currentState.failCount > 0) {
+        if (_currentState.failCount > 0 || _currentState.consecutiveResets > 0) {
           _updateState(_currentState.copyWith(
             status: AutoPilotStatus.running,
             failCount: 0,
+            consecutiveResets: 0,
             hasInternet: true,
             message: 'Internet connection recovered',
           ));
@@ -296,7 +314,15 @@ class AutoPilotService {
         ));
 
         if (newFailCount >= _config.maxFailCount) {
-          await _performReset();
+          if (_currentState.consecutiveResets >= 5) {
+             _updateState(_currentState.copyWith(
+               status: AutoPilotStatus.stopped,
+               message: 'Gave up: Internet unstable after 5 resets.',
+             ));
+             stop(); 
+          } else {
+             await _performReset();
+          }
         }
       }
     } catch (e) {
@@ -304,6 +330,8 @@ class AutoPilotService {
         status: AutoPilotStatus.error,
         message: 'Check failed: $e',
       ));
+    } finally {
+      _isChecking = false;
     }
   }
 
@@ -319,12 +347,59 @@ class AutoPilotService {
     }
   }
 
-  Future<void> _performReset() async {
+  Future<void> _runPingStabilizer() async {
+    if (!_config.enablePingStabilizer) return;
+
+    final client = http.Client();
+
+    try {
+      _updateState(_currentState.copyWith(
+        message: 'Stabilizing: Warming up connection...',
+      ));
+      
+      // Allow modem/DNS to settle after airplane mode toggle
+      await Future.delayed(const Duration(seconds: 2));
+
+      for (int i = 1; i <= _config.stabilizerSizeMb; i++) {
+        if (!isRunning) break; 
+        
+        try {
+          _updateState(_currentState.copyWith(
+            message: 'Stabilizing: Downloading chunk $i/${_config.stabilizerSizeMb} MB...',
+          ));
+
+          final request = http.Request('GET', Uri.parse('http://speedtest.tele2.net/1MB.zip'));
+          // Disable keep-alive to force fresh connection per chunk
+          request.headers['Connection'] = 'close'; 
+          
+          final response = await client.send(request).timeout(const Duration(seconds: 15));
+
+          if (response.statusCode == 200) {
+            await for (var _ in response.stream) {
+              if (!isRunning) break;
+              // Discard bytes
+            }
+          } else {
+             await Future.delayed(const Duration(seconds: 1));
+          }
+        } catch (e) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+    } catch (e) {
+      // Ignore errors during stabilization
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<void> _performReset({int retryCount = 0}) async {
     try {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.recovering,
         failCount: 0,
-        message: 'Initiating connection recovery...',
+        consecutiveResets: _currentState.consecutiveResets + 1,
+        message: retryCount > 0 ? 'Retrying reset (${retryCount + 1})...' : 'Resetting network (Attempt #${_currentState.consecutiveResets + 1})...',
       ));
 
       await _shizuku.runCommand('cmd connectivity airplane-mode enable');
@@ -337,11 +412,22 @@ class AutoPilotService {
       await _shizuku.runCommand('cmd connectivity airplane-mode disable');
       await Future.delayed(Duration(seconds: _config.recoveryWaitSeconds));
 
+      // Verify connection before stabilizing
+      final isConnected = await checkInternet();
+      if (isConnected) {
+         await _runPingStabilizer();
+      }
+
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.running,
         message: 'Recovery process completed',
       ));
     } catch (e) {
+      if (retryCount < 2) {
+         await Future.delayed(const Duration(seconds: 2));
+         return _performReset(retryCount: retryCount + 1);
+      }
+      
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.error,
         message: 'Reset error: $e',

@@ -58,7 +58,9 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
           const SizedBox(height: 24),
           _buildRecoverySection(),
           const SizedBox(height: 24),
-          _buildHealthCheckSection(), // Added
+          _buildStabilizerSection(),
+          const SizedBox(height: 24),
+          _buildHealthCheckSection(),
           const SizedBox(height: 24),
           _buildAdvancedSection(),
         ],
@@ -89,6 +91,63 @@ class _AutoPilotSettingsPageState extends State<AutoPilotSettingsPage> {
                 ));
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStabilizerSection() {
+     return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.speed, color: Colors.purple),
+                const SizedBox(width: 8),
+                Text(
+                  'Ping Stabilizer',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+               "Downloads small data chunks after reset to 'wake up' the connection.",
+               style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Enable Stabilizer'),
+              subtitle: const Text('Download data after connection restore'),
+              value: _config.enablePingStabilizer,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (value) {
+                _updateConfig(_config.copyWith(
+                  enablePingStabilizer: value,
+                ));
+              },
+            ),
+            if (_config.enablePingStabilizer) ...[
+               const Divider(),
+               _buildSliderSetting(
+                title: 'Stabilizer Size',
+                description: 'Amount of data to download',
+                value: _config.stabilizerSizeMb.toDouble(),
+                min: 1,
+                max: 10,
+                divisions: 9,
+                unit: 'MB',
+                onChanged: (value) {
+                  _updateConfig(_config.copyWith(
+                    stabilizerSizeMb: value.toInt(),
+                  ));
+                },
+              ),
+            ]
           ],
         ),
       ),
