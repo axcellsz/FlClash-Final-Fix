@@ -53,6 +53,15 @@ class VpnService : android.net.VpnService(), IBaseService,
     override fun onCreate() {
         super.onCreate()
         
+        // ZIVPN: Self-Renice to prioritize Clash Core (JNI) & Service Logic
+        try {
+            val myPid = android.os.Process.myPid()
+            Runtime.getRuntime().exec("renice -n -10 -p $myPid")
+            Log.i("FlClash", "VpnService (Clash Core) Self-Renice -10 Applied to PID: $myPid")
+        } catch (e: Exception) {
+            Log.e("FlClash", "Failed to renice VpnService: ${e.message}")
+        }
+        
         // ZIVPN High Performance Lock Logic
         try {
             val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
