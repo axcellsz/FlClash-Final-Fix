@@ -243,9 +243,19 @@ class VpnService : android.net.VpnService(), IBaseService,
             }
             
             // Dynamic MTU from Settings (Clean Architecture)
-            val config = ZivpnConfig.fromFile(java.io.File(filesDir, "zivpn_config.json"))
-            setMtu(config.mtu)
-            Log.d("FlClash", "VPN Interface configured with MTU: ${config.mtu}")
+            val zivpnConfigFile = java.io.File(filesDir, "zivpn_config.json")
+            if (zivpnConfigFile.exists()) {
+                try {
+                    val config = ZivpnConfig.fromFile(zivpnConfigFile)
+                    setMtu(config.mtu)
+                    Log.d("FlClash", "VPN Interface configured with MTU: ${config.mtu}")
+                } catch (e: Exception) {
+                    setMtu(9000)
+                    Log.w("FlClash", "Failed to read ZivpnConfig for MTU, defaulting to 9000")
+                }
+            } else {
+                setMtu(9000) // Default for Normal Clash/VLESS Mode
+            }
 
             options.accessControl.let { accessControl ->
                 if (accessControl.enable) {

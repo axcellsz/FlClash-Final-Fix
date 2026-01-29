@@ -93,6 +93,18 @@ class MainActivity : FlutterActivity(),
                 } catch (e: Exception) {
                     result.error("WRITE_ERR", "Failed to save config: ${e.message}", null)
                 }
+            } else if (call.method == "stop_process") {
+                try {
+                    val configFile = File(filesDir, "zivpn_config.json")
+                    if (configFile.exists()) {
+                        configFile.delete()
+                    }
+                    // Also try to kill the process via VpnService if possible, or just let VpnService handle it via stopHysteria
+                    // But here we just clear config so next start won't trigger it.
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("DEL_ERR", "Failed to delete config: ${e.message}", null)
+                }
             } else if (call.method == "request_battery") {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager

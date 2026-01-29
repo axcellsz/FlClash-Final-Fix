@@ -673,14 +673,28 @@ class AppController {
                 commonPrint.log("[Hysteria] Failed to hot-reload: $e");
              }
           }
+        } else {
+           await _stopHysteria();
         }
       } else {
-        // Stop Hysteria if switching to non-Hysteria profile
-        // This is optional but good for battery
+        await _stopHysteria();
       }
     } catch (e) {
       commonPrint.log("[Hysteria] Auto-start error: $e", logLevel: LogLevel.warning);
     }
+  }
+
+  Future<void> _stopHysteria() async {
+      // Clean up Hysteria config and process if switching to non-Hysteria profile
+      const platform = MethodChannel('com.follow.clash/hysteria');
+      await platform.invokeMethod('stop_process');
+      
+      if (globalState.isService) {
+         const servicePlatform = MethodChannel('com.follow.clash/service');
+         try {
+            await servicePlatform.invokeMethod('stopHysteria');
+         } catch(_) {}
+      }
   }
 
   Future<void> _connectCore() async {
