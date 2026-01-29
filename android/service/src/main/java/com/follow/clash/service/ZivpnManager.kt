@@ -66,7 +66,21 @@ class ZivpnManager(
 
                 for ((index, port) in ports.withIndex()) {
                     val currentRange = if (ranges.isNotEmpty()) ranges[index % ranges.size] else "6000-19999"
-                    val configContent = """{"server":"${config.ip}:$currentRange","obfs":"${config.obfs}","auth":"${config.pass}","socks5":{"listen":"127.0.0.1:$port"},"insecure":true,"recvwindowconn":$dynamicConn,"recvwindow":$dynamicWin}"""
+                    
+                    val configJson = org.json.JSONObject()
+                    configJson.put("server", "${config.ip}:$currentRange")
+                    configJson.put("obfs", config.obfs)
+                    configJson.put("auth", config.pass)
+                    
+                    val socks5Json = org.json.JSONObject()
+                    socks5Json.put("listen", "127.0.0.1:$port")
+                    configJson.put("socks5", socks5Json)
+                    
+                    configJson.put("insecure", true)
+                    configJson.put("recvwindowconn", dynamicConn)
+                    configJson.put("recvwindow", dynamicWin)
+
+                    val configContent = configJson.toString()
                     
                     // Use ProcessBuilder with custom environment to prevent inheritance issues
                     val pb = ProcessBuilder(libUz, "-s", config.obfs, "--config", configContent)

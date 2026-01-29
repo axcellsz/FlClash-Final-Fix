@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shizuku_api/shizuku_api.dart';
 import 'package:fl_clash/state.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AutoPilotConfig {
   final int checkIntervalSeconds;
@@ -131,6 +132,7 @@ class AutoPilotService {
   Stream<AutoPilotState> get stateStream => _stateController.stream;
   
   bool _isChecking = false;
+  String? _cachedPackageName;
 
   AutoPilotState _currentState = const AutoPilotState(
     status: AutoPilotStatus.stopped,
@@ -142,6 +144,13 @@ class AutoPilotService {
   AutoPilotState get currentState => _currentState;
   AutoPilotConfig get config => _config;
   bool get isRunning => _currentState.status != AutoPilotStatus.stopped;
+
+  Future<String> get _packageName async {
+    if (_cachedPackageName != null) return _cachedPackageName!;
+    final info = await PackageInfo.fromPlatform();
+    _cachedPackageName = info.packageName;
+    return _cachedPackageName!;
+  }
 
   void updateConfig(AutoPilotConfig newConfig) {
     final wasRunning = isRunning;
@@ -203,7 +212,7 @@ class AutoPilotService {
   /// Trik Shizuku: Memaksa Android untuk tidak mematikan aplikasi ini (Anti-DeepSleep)
   Future<void> _strengthenBackground() async {
     try {
-      const pkg = 'com.follow.clash'; 
+      final pkg = await _packageName; 
       
       // 1. Whitelist Doze & Idle (Ini yang memberikan Bucket 5 secara otomatis)
       await _shizuku.runCommand('dumpsys deviceidle whitelist +$pkg && dumpsys deviceidle except-idle-whitelist +$pkg && dumpsys deviceidle tempwhitelist +$pkg');
@@ -245,7 +254,7 @@ class AutoPilotService {
       // 7. Battery Stats Active
       await _shizuku.runCommand('cmd batterystats --active $pkg');
       
-      print('[_strengthenBackground] Ultimate Multi-Vendor Enforcement Applied');
+      print('[_strengthenBackground] Ultimate Multi-Vendor Enforcement Applied for $pkg');
     } catch (e) {
       print('[_strengthenBackground] Warning: $e');
     }
@@ -423,6 +432,11 @@ class AutoPilotService {
         message: 'Recovery process completed',
       ));
     } catch (e) {
+      // Safety: Attempt to disable airplane mode in case we got stuck
+      try {
+        await _shizuku.runCommand('cmd connectivity airplane-mode disable');
+      } catch (_) {}
+
       if (retryCount < 2) {
          await Future.delayed(const Duration(seconds: 2));
          return _performReset(retryCount: retryCount + 1);
