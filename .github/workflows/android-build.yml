@@ -1,9 +1,8 @@
-name: Android Build (Debug Unsigned)
+name: Android Build (Debug)
 
 on:
   push:
-    branches: [ "main" ]
-    tags: [ "v*" ]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -37,22 +36,21 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.0'
-          cache-dependency-path: |
-            core/go.sum
+          go-version: "1.23.x"
+          cache-dependency-path: core/go.sum
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
-          cache: 'gradle'
+          distribution: zulu
+          java-version: "17"
+          cache: gradle
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.35.7
+          flutter-version: "3.35.7"
           cache: true
 
       - name: Get Flutter Dependencies
@@ -68,35 +66,17 @@ jobs:
       - name: Setup FlClash Core
         run: dart setup.dart android --out core
 
-      # DEBUG build: no keystore/secrets needed
       - name: Build APK (Debug)
         run: flutter build apk --debug --target-platform android-arm,android-arm64 --split-per-abi
 
       - name: Upload APK (ARM64)
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: FlClash-arm64-v8a-debug
           path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
 
       - name: Upload APK (ARMv7)
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: FlClash-armeabi-v7a-debug
           path: build/app/outputs/flutter-apk/app-armeabi-v7a-debug.apk
-
-      # Optional: create a GitHub Release only when you push a tag v*
-      # Debug APKs will be attached to the release.
-      - name: Create GitHub Release (Debug)
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            build/app/outputs/flutter-apk/*.apk
-          name: FlClash Debug ${{ github.ref_name }}
-          draft: false
-          prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```0
