@@ -1,4 +1,4 @@
-name: Android Build
+name: Android Build (Debug Unsigned)
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -68,42 +68,35 @@ jobs:
       - name: Setup FlClash Core
         run: dart setup.dart android --out core
 
-      - name: Decode Keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
-
-      - name: Build APK (Release)
-        env:
-          KEYSTORE_PATH: release.jks
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-        run: flutter build apk --release --target-platform android-arm,android-arm64 --split-per-abi
+      # DEBUG build: no keystore/secrets needed
+      - name: Build APK (Debug)
+        run: flutter build apk --debug --target-platform android-arm,android-arm64 --split-per-abi
 
       - name: Upload APK (ARM64)
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FlClash-arm64-v8a
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          name: FlClash-arm64-v8a-debug
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
 
       - name: Upload APK (ARMv7)
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: FlClash-armeabi-v7a
-          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+          name: FlClash-armeabi-v7a-debug
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-debug.apk
 
-      - name: Create GitHub Release
+      # Optional: create a GitHub Release only when you push a tag v*
+      # Debug APKs will be attached to the release.
+      - name: Create GitHub Release (Debug)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             build/app/outputs/flutter-apk/*.apk
-          name: FlClash Hysteria Turbo ${{ github.ref_name }}
+          name: FlClash Debug ${{ github.ref_name }}
           draft: false
-          prerelease: false
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```0
